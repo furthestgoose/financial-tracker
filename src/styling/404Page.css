@@ -1,4 +1,10 @@
-body {
+
+
+.not-found-page {
+    text-align: center;
+    padding: 2rem;
+    max-width: 600px;
+    margin: 0 auto;
     font-family: 'Roboto', sans-serif;
     background: #1e1e1e; 
     display: flex;
@@ -6,13 +12,6 @@ body {
     align-items: center;
     min-height: 100vh;
     padding: 20px;
-  }
-
-.not-found-page {
-    text-align: center;
-    padding: 2rem;
-    max-width: 600px;
-    margin: 0 auto;
   }
   
   .not-found-page h1 {
