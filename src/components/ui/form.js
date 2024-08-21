@@ -39,4 +39,21 @@ const Checkbox = ({ id, label, ...props }) => {
   );
 };
 
-export { Input, Label, Checkbox };
+const Select = ({ label, id, children, ...props }) => {
+  return (
+    <div className="form-group">
+      <label htmlFor={id} className="block font-medium text-gray-700 mb-1">
+        {label}
+      </label>
+      <select
+        id={id}
+        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+        {...props}
+      >
+        {children}
+      </select>
+    </div>
+  );
+};
+
+export { Input, Label, Checkbox, Select };
