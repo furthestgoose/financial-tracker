@@ -8,7 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { format, parseISO, isValid, getYear } from 'date-fns';
+import { format, parseISO, parse, isValid, getYear, compareDesc, addMonths, addWeeks, startOfYear, endOfYear, eachMonthOfInterval, eachWeekOfInterval } from 'date-fns';
 import { Card, CardHeader, CardContent } from '../components/ui/card';
 import { Input, Label, Checkbox, Select } from '../components/ui/form';
 import { Button } from '../components/ui/button';
@@ -19,6 +19,7 @@ import { db, doc, setDoc, onSnapshot } from '../firebase';
 const IncomeDashboard = () => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
+  const [filterMonth, setFilterMonth] = useState('');
 
   const [incomeData, setIncomeData] = useState([]);
   const [groupedIncomeData, setGroupedIncomeData] = useState([]);
@@ -32,6 +33,15 @@ const IncomeDashboard = () => {
   const [editMode, setEditMode] = useState(false);
   const [editingIncome, setEditingIncome] = useState(null);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+
+  const sortedAndFilteredIncomeData = incomeData
+    .filter((item) => item.year === filterYear)
+    .filter((item) => filterMonth === '' || item.month === filterMonth)
+    .sort((a, b) => {
+      const dateA = parse(a.date, 'dd/MM/yyyy', new Date());
+      const dateB = parse(b.date, 'dd/MM/yyyy', new Date());
+      return compareDesc(dateA, dateB);
+    });
 
   useEffect(() => {
     if (currentUser) {
@@ -73,6 +83,10 @@ const IncomeDashboard = () => {
       ...newIncome,
       [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value,
     });
+  };
+
+  const handleFilterMonth = (e) => {
+    setFilterMonth(e.target.value);
   };
 
   const handleAddIncome = async (e) => {
@@ -153,11 +167,18 @@ const IncomeDashboard = () => {
   };
 
   const handleEditIncome = (income) => {
-    setEditingIncome(income);
+    // Parse the existing date to a Date object
+    const parsedDate = parse(income.date, 'dd/MM/yyyy', new Date());
+    
+    // Format the date to yyyy-MM-dd
+    const formattedDate = format(parsedDate, 'yyyy-MM-dd');
+    
+    // Set the state with formatted date
     setNewIncome({
       ...income,
-      date: income.date.slice(0, 10), // Ensure the date format is yyyy-mm-dd
+      date: formattedDate, // Use the formatted date
     });
+    setEditingIncome(income);
     setEditMode(true);
   };
 
@@ -373,40 +394,63 @@ const IncomeDashboard = () => {
           </Card>
         </div>
 
-        <Card>
+        <Card className="flex-1 overflow-hidden flex flex-col">
           <CardHeader>
             <h3 className="text-xl font-semibold">Income Entries</h3>
+            <div className="flex space-x-4 mt-2">
+              <div>
+                <Label htmlFor="filterMonth">Filter by month:</Label>
+                <Select
+                  id="filterMonth"
+                  value={filterMonth}
+                  onChange={handleFilterMonth}
+                  className="border border-gray-300 rounded-md p-1"
+                >
+                  <option value="">All Months</option>
+                  <option value="January">January</option>
+                  <option value="February">February</option>
+                  <option value="March">March</option>
+                  <option value="April">April</option>
+                  <option value="May">May</option>
+                  <option value="June">June</option>
+                  <option value="July">July</option>
+                  <option value="August">August</option>
+                  <option value="September">September</option>
+                  <option value="October">October</option>
+                  <option value="November">November</option>
+                  <option value="December">December</option>
+                </Select>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="">
-              <ul className=" divide-y divide-gray-300">
-                {incomeData
-                  .filter((item) => item.year === filterYear)
-                  .map((income, index) => (
-                    <li
-                      key={index}
-                      className="py-2 flex justify-between items-center text-gray-700 cursor-pointer"
-                      onClick={() => handleEditIncome(income)}
+          <CardContent className="flex-1 overflow-auto">
+            <div className="overflow-y-auto">
+              <ul className="divide-y divide-gray-300">
+                {sortedAndFilteredIncomeData.map((income, index) => (
+                  <li
+                  key={index}
+                  className="py-2 flex justify-between items-center text-gray-700 cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleEditIncome(income)}
+                >
+                    <span className="font-medium">{income.name}</span>
+                    {income.recurring && (
+                      <span className="font-medium text-gray-500">
+                        ({income.frequency === 'weekly' ? 'Weekly' : 'Monthly'})
+                      </span>
+                    )}
+                    <span className="font-medium">{income.date}</span>
+                    <span className="font-semibold">$ {parseFloat(income.amount).toFixed(2)}</span>
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteIncome(income);
+                      }}
+                      className="text-white-600 ml-4 bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
                     >
-                      <span className="font-medium">{income.name}</span>
-                      {income.recurring && (
-                        <span className="font-medium text-gray-500">
-                          ({income.frequency === 'weekly' ? 'Weekly' : 'Monthly'})
-                        </span>
-                      )}
-                      <span className="font-medium">{income.date}</span>
-                      <span className="font-semibold">$ {income.amount.toFixed(2)}</span>
-                      <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteIncome(income);
-                        }}
-                        className="text-white-600 ml-4 bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-                      >
-                        Delete
-                      </Button>
-                    </li>
-                  ))}
+                      Delete
+                    </Button>
+                  </li>
+                ))}
               </ul>
             </div>
           </CardContent>
