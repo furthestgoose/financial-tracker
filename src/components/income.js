@@ -58,24 +58,21 @@ const IncomeDashboard = () => {
   }, [currentUser]);
 
   useEffect(() => {
-    const groupedData = incomeData.reduce((acc, item) => {
+    const aggregatedData = incomeData.reduce((acc, item) => {
       const key = `${item.month}-${item.year}`;
       if (!acc[key]) {
         acc[key] = {
           month: item.month,
           year: item.year,
-          amount: 0,
-          recurring: false,
-          frequency: 'monthly',
+          amount: 0
         };
       }
       acc[key].amount += item.amount;
-      acc[key].recurring = acc[key].recurring || item.recurring;
-      acc[key].frequency = item.frequency;
       return acc;
     }, {});
-
-    setGroupedIncomeData(Object.values(groupedData));
+  
+    const groupedDataArray = Object.values(aggregatedData);
+    setGroupedIncomeData(groupedDataArray);
   }, [incomeData]);
 
   const handleIncomeChange = (e) => {
@@ -275,8 +272,8 @@ const IncomeDashboard = () => {
           <a href="/settings" className="nav-item">Settings</a>
         </nav>
       </aside>
-
-      <main className="main-content flex-1 p-6">
+  
+      <main className="main-content flex-1 p-6 overflow-auto">
         <header className="content-header flex justify-between items-center mb-4">
           <h1 className="text-2xl font-semibold">Income Dashboard</h1>
           <Button
@@ -286,9 +283,10 @@ const IncomeDashboard = () => {
             Logout
           </Button>
         </header>
-
-        <div className="content-body flex space-x-6">
-          <Card className="flex-1">
+  
+        <div className="content-body grid grid-cols-2 gap-6"> {/* Grid layout for the top two cards */}
+          {/* First Card */}
+          <Card>
             <CardHeader>
               <h3 className="text-xl font-semibold">Income Overview</h3>
               <div className="mt-2">
@@ -306,16 +304,17 @@ const IncomeDashboard = () => {
               <ResponsiveContainer width="100%" height={500}>
                 <LineChart data={filteredIncomeData}>
                   <XAxis dataKey="month" />
-                  <YAxis />
+                  <YAxis tickFormatter={(value) => `£${value}`} />
                   <CartesianGrid strokeDasharray="3 3" />
-                  <Tooltip />
+                  <Tooltip formatter={(value) => `£${value}`} />
                   <Line type="monotone" dataKey="amount" stroke="#3e9c35" activeDot={{ r: 8 }} />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
-
-          <Card className="flex-1">
+  
+          {/* Second Card */}
+          <Card>
             <CardHeader>
               <h3 className="text-xl font-semibold">Add/Edit Income</h3>
             </CardHeader>
@@ -384,7 +383,7 @@ const IncomeDashboard = () => {
                 <div className="form-group">
                   <Button
                     type="submit"
-                    className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-600"
                   >
                     {editMode ? 'Update Income' : 'Add Income'}
                   </Button>
@@ -392,46 +391,45 @@ const IncomeDashboard = () => {
               </form>
             </CardContent>
           </Card>
-        </div>
-
-        <Card className="flex-1 overflow-hidden flex flex-col">
-          <CardHeader>
-            <h3 className="text-xl font-semibold">Income Entries</h3>
-            <div className="flex space-x-4 mt-2">
-              <div>
-                <Label htmlFor="filterMonth">Filter by month:</Label>
-                <Select
-                  id="filterMonth"
-                  value={filterMonth}
-                  onChange={handleFilterMonth}
-                  className="border border-gray-300 rounded-md p-1"
-                >
-                  <option value="">All Months</option>
-                  <option value="January">January</option>
-                  <option value="February">February</option>
-                  <option value="March">March</option>
-                  <option value="April">April</option>
-                  <option value="May">May</option>
-                  <option value="June">June</option>
-                  <option value="July">July</option>
-                  <option value="August">August</option>
-                  <option value="September">September</option>
-                  <option value="October">October</option>
-                  <option value="November">November</option>
-                  <option value="December">December</option>
-                </Select>
+  
+          {/* Bottom Card: Income Entries */}
+          <Card className="col-span-2"> {/* Span both columns */}
+            <CardHeader>
+              <h3 className="text-xl font-semibold">Income Entries</h3>
+              <div className="flex space-x-4 mt-2">
+                <div>
+                  <Label htmlFor="filterMonth">Filter by month:</Label>
+                  <Select
+                    id="filterMonth"
+                    value={filterMonth}
+                    onChange={handleFilterMonth}
+                    className="border border-gray-300 rounded-md p-1"
+                  >
+                    <option value="">All Months</option>
+                    <option value="January">January</option>
+                    <option value="February">February</option>
+                    <option value="March">March</option>
+                    <option value="April">April</option>
+                    <option value="May">May</option>
+                    <option value="June">June</option>
+                    <option value="July">July</option>
+                    <option value="August">August</option>
+                    <option value="September">September</option>
+                    <option value="October">October</option>
+                    <option value="November">November</option>
+                    <option value="December">December</option>
+                  </Select>
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-auto">
-            <div className="overflow-y-auto">
+            </CardHeader>
+            <CardContent>
               <ul className="divide-y divide-gray-300">
                 {sortedAndFilteredIncomeData.map((income, index) => (
                   <li
-                  key={index}
-                  className="py-2 flex justify-between items-center text-gray-700 cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleEditIncome(income)}
-                >
+                    key={index}
+                    className="py-2 flex justify-between items-center text-gray-700 cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleEditIncome(income)}
+                  >
                     <span className="font-medium">{income.name}</span>
                     {income.recurring && (
                       <span className="font-medium text-gray-500">
@@ -439,7 +437,7 @@ const IncomeDashboard = () => {
                       </span>
                     )}
                     <span className="font-medium">{income.date}</span>
-                    <span className="font-semibold">$ {parseFloat(income.amount).toFixed(2)}</span>
+                    <span className="font-semibold">£ {parseFloat(income.amount).toFixed(2)}</span>
                     <Button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -452,12 +450,12 @@ const IncomeDashboard = () => {
                   </li>
                 ))}
               </ul>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </div>
   );
-};
+}  
 
 export default IncomeDashboard;
