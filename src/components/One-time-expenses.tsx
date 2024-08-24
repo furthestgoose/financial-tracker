@@ -2,10 +2,9 @@ import React from 'react';
 import Sidebar from './ui/sidebar';
 import DashboardHeader from './ui/Dashboard_header';
 
-const One_time_Expenses = () => {
-  
-    return (
-      <div className="flex h-screen w-screen bg-gray-100">
+const OneTimeExpenses: React.FC = () => {
+  return (
+    <div className="flex h-screen w-screen bg-gray-100">
       {/* Sidebar */}
       <Sidebar page="One Time Expenses" />
 
@@ -23,7 +22,7 @@ const One_time_Expenses = () => {
         </div>
       </main>
     </div>
-    );
-  };
+  );
+};
 
-export default One_time_Expenses;
+export default OneTimeExpenses;

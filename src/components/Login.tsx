@@ -2,24 +2,26 @@ import React, { useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-const Login = () => {
-  const emailRef = useRef();
-  const passwordRef = useRef();
+const Login: React.FC = () => {
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
   const { login } = useAuth();
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    try {
-      setError('');
-      setLoading(true);
-      await login(emailRef.current.value, passwordRef.current.value);
-      navigate('/dashboard');
-    } catch {
-      setError('Failed to log in');
+    if (emailRef.current && passwordRef.current) {
+      try {
+        setError('');
+        setLoading(true);
+        await login(emailRef.current.value, passwordRef.current.value);
+        navigate('/dashboard');
+      } catch {
+        setError('Failed to log in');
+      }
     }
 
     setLoading(false);

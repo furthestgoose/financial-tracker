@@ -2,10 +2,9 @@ import React from 'react';
 import Sidebar from './ui/sidebar';
 import DashboardHeader from './ui/Dashboard_header';
 
-const Settings = () => {
-  
-    return (
-      <div className="flex h-screen w-screen bg-gray-100">
+const Settings: React.FC = () => {
+  return (
+    <div className="flex h-screen w-screen bg-gray-100">
       {/* Sidebar */}
       <Sidebar page="Settings" />
 
@@ -23,7 +22,7 @@ const Settings = () => {
         </div>
       </main>
     </div>
-    );
-  };
+  );
+};
 
 export default Settings;

@@ -1,6 +1,12 @@
 import React from 'react';
 
-const Input = ({ label, id, ...props }) => {
+// Input Component
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label: string;
+  id: string;
+}
+
+const Input: React.FC<InputProps> = ({ label, id, ...props }) => {
   return (
     <div className="form-group">
       <label htmlFor={id} className="block font-medium text-gray-700 mb-1">
@@ -15,7 +21,13 @@ const Input = ({ label, id, ...props }) => {
   );
 };
 
-const Label = ({ htmlFor, children }) => {
+// Label Component
+interface LabelProps {
+  htmlFor: string;
+  children: React.ReactNode;
+}
+
+const Label: React.FC<LabelProps> = ({ htmlFor, children }) => {
   return (
     <label htmlFor={htmlFor} className="block font-medium text-gray-700 mb-1">
       {children}
@@ -23,7 +35,13 @@ const Label = ({ htmlFor, children }) => {
   );
 };
 
-const Checkbox = ({ id, label, ...props }) => {
+// Checkbox Component
+interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  id: string;
+  label: string;
+}
+
+const Checkbox: React.FC<CheckboxProps> = ({ id, label, ...props }) => {
   return (
     <div className="flex items-center">
       <input
@@ -39,7 +57,14 @@ const Checkbox = ({ id, label, ...props }) => {
   );
 };
 
-const Select = ({ label, id, children, ...props }) => {
+// Select Component
+interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  label: string;
+  id: string;
+  children: React.ReactNode;
+}
+
+const Select: React.FC<SelectProps> = ({ label, id, children, ...props }) => {
   return (
     <div className="form-group">
       <label htmlFor={id} className="block font-medium text-gray-700 mb-1">

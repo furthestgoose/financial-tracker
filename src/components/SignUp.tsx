@@ -1,18 +1,22 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, ChangeEvent, FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-const Signup = () => {
-  const emailRef = useRef();
-  const passwordRef = useRef();
+const Signup: React.FC = () => {
+  // Typing useRef for email and password input elements
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
   const { signup } = useAuth();
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [passwordValid, setPasswordValid] = useState(false);
+  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [passwordValid, setPasswordValid] = useState<boolean>(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  // Typing the event parameter for handleSubmit
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    if (!emailRef.current || !passwordRef.current) return;
 
     try {
       setError('');
@@ -26,13 +30,19 @@ const Signup = () => {
     setLoading(false);
   };
 
-  const validatePassword = (password) => {
+  // Typing the parameter for validatePassword
+  const validatePassword = (password: string) => {
     const hasUpperCase = /[A-Z]/.test(password);
     const hasLowerCase = /[a-z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
     const hasMinLength = password.length >= 6;
     
     setPasswordValid(hasUpperCase && hasLowerCase && hasNumber && hasMinLength);
+  };
+
+  // Typing the parameter for onChange event
+  const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => {
+    validatePassword(e.target.value);
   };
 
   return (
@@ -58,7 +68,7 @@ const Signup = () => {
               ref={passwordRef}
               required
               placeholder="Password"
-              onChange={(e) => validatePassword(e.target.value)}
+              onChange={handlePasswordChange}
               className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

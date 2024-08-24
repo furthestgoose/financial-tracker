@@ -1,10 +1,10 @@
 import React from 'react';
-import Sidebar from './ui/sidebar'; 
+import Sidebar from './ui/sidebar';
 import DashboardHeader from './ui/Dashboard_header';
 
-const Investments = () => {
-    return (
-      <div className="flex h-screen w-screen bg-gray-100">
+const Investments: React.FC = () => {
+  return (
+    <div className="flex h-screen w-screen bg-gray-100">
       {/* Sidebar */}
       <Sidebar page="Investments" />
 
@@ -17,12 +17,14 @@ const Investments = () => {
 
         {/* Content body outside the white box */}
         <div className="flex-1">
-          <p className="text-gray-700">This is your personalized dashboard. Explore the sidebar for more options.</p>
+          <p className="text-gray-700">
+            This is your personalized dashboard. Explore the sidebar for more options.
+          </p>
           {/* Add more dashboard content here */}
         </div>
       </main>
     </div>
-    );
-  };
+  );
+};
 
 export default Investments;

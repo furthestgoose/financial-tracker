@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ChangeEvent, FormEvent, MouseEvent } from 'react';
 import {
   LineChart,
   Line,
@@ -8,33 +8,63 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { format, parseISO, parse, isValid, getYear, compareDesc, endOfYear, eachMonthOfInterval, eachWeekOfInterval } from 'date-fns';
-import { Card, CardHeader, CardContent } from '../components/ui/card';
-import { Input, Label, Checkbox, Select } from '../components/ui/form';
-import { Button } from '../components/ui/button';
+import {
+  format,
+  parseISO,
+  parse,
+  isValid,
+  getYear,
+  compareDesc,
+  endOfYear,
+  eachMonthOfInterval,
+  eachWeekOfInterval,
+} from 'date-fns';
+import { Card, CardHeader, CardContent } from './ui/card';
+import { Input, Checkbox, Select } from './ui/form';
+import { Button } from './ui/button';
 import { useAuth } from '../contexts/AuthContext';
 import { db, doc, setDoc, onSnapshot } from '../firebase';
 import Sidebar from './ui/sidebar';
 import DashboardHeader from './ui/Dashboard_header';
 import { v4 as uuidv4 } from 'uuid';
 
-const IncomeDashboard = () => {
-  const { currentUser} = useAuth();
-  const [filterMonth, setFilterMonth] = useState('');
+interface IncomeEntry {
+  id: string;
+  name: string;
+  amount: number;
+  date: string;
+  recurring: boolean;
+  frequency: 'monthly' | 'weekly';
+  month: string;
+  year: number;
+}
 
-  const [incomeData, setIncomeData] = useState([]);
-  const [groupedIncomeData, setGroupedIncomeData] = useState([]);
-  const [newIncome, setNewIncome] = useState({
+interface GroupedIncomeData {
+  month: string;
+  year: number;
+  amount: number;
+}
+
+const IncomeDashboard: React.FC = () => {
+  const { currentUser } = useAuth();
+  const [filterMonth, setFilterMonth] = useState<string>('');
+  const [incomeData, setIncomeData] = useState<IncomeEntry[]>([]);
+  const [groupedIncomeData, setGroupedIncomeData] = useState<GroupedIncomeData[]>([]);
+  const [newIncome, setNewIncome] = useState<IncomeEntry>({
+    id: '',
     name: '',
-    amount: '',
-    date: new Date().toISOString().slice(0, 10), // Default to today's date
+    amount: 0,
+    date: new Date().toISOString().slice(0, 10),
     recurring: false,
     frequency: 'monthly',
+    month: format(new Date(), 'MMMM'),
+    year: getYear(new Date()),
   });
-  const [editMode, setEditMode] = useState(false);
-  const [editingIncome, setEditingIncome] = useState(null);
-  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+  const [editMode, setEditMode] = useState<boolean>(false);
+  const [editingIncome, setEditingIncome] = useState<IncomeEntry | null>(null);
+  const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear());
 
+  // Compute sorted and filtered income data
   const sortedAndFilteredIncomeData = incomeData
     .filter((item) => item.year === filterYear)
     .filter((item) => filterMonth === '' || item.month === filterMonth)
@@ -44,6 +74,7 @@ const IncomeDashboard = () => {
       return compareDesc(dateA, dateB);
     });
 
+  // Effect to listen for income data changes
   useEffect(() => {
     if (currentUser) {
       const userIncomeRef = doc(db, 'users', currentUser.uid);
@@ -58,81 +89,62 @@ const IncomeDashboard = () => {
     }
   }, [currentUser]);
 
+  // Effect to aggregate income data
   useEffect(() => {
-    const aggregatedData = incomeData.reduce((acc, item) => {
+    const aggregatedData = incomeData.reduce<Record<string, GroupedIncomeData>>((acc, item) => {
       const key = `${item.month}-${item.year}`;
       if (!acc[key]) {
         acc[key] = {
           month: item.month,
           year: item.year,
-          amount: 0
+          amount: 0,
         };
       }
-      acc[key].amount += parseFloat(item.amount);
+      acc[key].amount += item.amount;
       return acc;
     }, {});
-  
-    const groupedDataArray = Object.values(aggregatedData).map(item => ({
+
+    const groupedDataArray = Object.values(aggregatedData).map((item) => ({
       ...item,
-      amount: Number(item.amount.toFixed(2))
+      amount: Number(item.amount.toFixed(2)),
     }));
-  
+
     setGroupedIncomeData(groupedDataArray);
   }, [incomeData]);
 
-  const handleIncomeChange = (e) => {
-    setNewIncome({
-      ...newIncome,
-      [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value,
-    });
+  // Handle input field changes
+  const handleIncomeChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    setNewIncome((prevIncome) => ({
+      ...prevIncome,
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
+    }));
   };
 
-  const handleFilterMonth = (e) => {
+  // Handle month filter changes
+  const handleFilterMonth = (e: ChangeEvent<HTMLSelectElement>) => {
     setFilterMonth(e.target.value);
   };
 
-  const handleAddIncome = async (e) => {
+  // Add new income entry
+  const handleAddIncome = async (e: FormEvent) => {
     e.preventDefault();
-
-    if (!newIncome.name || !newIncome.amount || !newIncome.date) {
-      alert('Please fill out all fields.');
-      return;
-    }
-
-    const parsedAmount = parseFloat(newIncome.amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      alert('Please enter a valid positive amount.');
-      return;
-    }
+    if (!validateIncome(newIncome)) return;
 
     const parsedDate = parseISO(newIncome.date);
-    if (!isValid(parsedDate)) {
-      alert('Invalid date format.');
-      return;
-    }
-
     const formattedMonth = format(parsedDate, 'MMMM');
     const formattedYear = getYear(parsedDate);
     const formattedDate = format(parsedDate, 'dd/MM/yyyy');
+    const parsedAmount = parseFloat(newIncome.amount.toString());
     let updatedIncomeData = [...incomeData];
 
     if (newIncome.recurring) {
       const endOfYearDate = endOfYear(parsedDate);
-      let recurringDates;
+      const recurringDates = newIncome.frequency === 'monthly'
+        ? eachMonthOfInterval({ start: parsedDate, end: endOfYearDate })
+        : eachWeekOfInterval({ start: parsedDate, end: endOfYearDate });
 
-      if (newIncome.frequency === 'monthly') {
-        recurringDates = eachMonthOfInterval({
-          start: parsedDate,
-          end: endOfYearDate
-        });
-      } else {
-        recurringDates = eachWeekOfInterval({
-          start: parsedDate,
-          end: endOfYearDate
-        });
-      }
-
-      recurringDates.forEach(date => {
+      recurringDates.forEach((date) => {
         updatedIncomeData.push({
           id: uuidv4(),
           name: newIncome.name,
@@ -157,18 +169,7 @@ const IncomeDashboard = () => {
       });
     }
 
-    updatedIncomeData.sort((a, b) => {
-      if (a.year !== b.year) {
-        return a.year - b.year;
-      } else {
-        const monthOrder = {
-          January: 1, February: 2, March: 3, April: 4, May: 5, June: 6,
-          July: 7, August: 8, September: 9, October: 10, November: 11, December: 12
-        };
-        return monthOrder[a.month] - monthOrder[b.month];
-      }
-    });
-
+    updatedIncomeData.sort(sortIncomeByDate);
     setIncomeData(updatedIncomeData);
 
     if (currentUser) {
@@ -176,21 +177,14 @@ const IncomeDashboard = () => {
       await setDoc(userIncomeRef, { income: updatedIncomeData }, { merge: true });
     }
 
-    setNewIncome({
-      name: '',
-      amount: '',
-      date: new Date().toISOString().slice(0, 10),
-      recurring: false,
-      frequency: 'monthly',
-    });
-    setEditMode(false);
+    resetNewIncome();
   };
 
-  const handleEditIncome = (income) => {
+  // Edit existing income entry
+  const handleEditIncome = (income: IncomeEntry) => {
     const parsedDate = parse(income.date, 'dd/MM/yyyy', new Date());
-    
     const formattedDate = format(parsedDate, 'yyyy-MM-dd');
-    
+
     setNewIncome({
       ...income,
       date: formattedDate,
@@ -199,49 +193,25 @@ const IncomeDashboard = () => {
     setEditMode(true);
   };
 
-  const handleUpdateIncome = async (e) => {
+  // Update existing income entry
+  const handleUpdateIncome = async (e: FormEvent) => {
     e.preventDefault();
-
-    if (!newIncome.name || !newIncome.amount || !newIncome.date) {
-      alert('Please fill out all fields.');
-      return;
-    }
-
-    const parsedAmount = parseFloat(newIncome.amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      alert('Please enter a valid positive amount.');
-      return;
-    }
+    if (!validateIncome(newIncome)) return;
 
     const parsedDate = parseISO(newIncome.date);
-    if (!isValid(parsedDate)) {
-      alert('Invalid date format.');
-      return;
-    }
-
     const formattedMonth = format(parsedDate, 'MMMM');
     const formattedYear = getYear(parsedDate);
     const formattedDate = format(parsedDate, 'dd/MM/yyyy');
-
-    let updatedIncomeData = incomeData.filter(item => item.id !== editingIncome.id);
+    const parsedAmount = parseFloat(newIncome.amount.toString());
+    let updatedIncomeData = incomeData.filter((item) => item.id !== editingIncome?.id);
 
     if (newIncome.recurring) {
       const endOfYearDate = endOfYear(parsedDate);
-      let recurringDates;
+      const recurringDates = newIncome.frequency === 'monthly'
+        ? eachMonthOfInterval({ start: parsedDate, end: endOfYearDate })
+        : eachWeekOfInterval({ start: parsedDate, end: endOfYearDate });
 
-      if (newIncome.frequency === 'monthly') {
-        recurringDates = eachMonthOfInterval({
-          start: parsedDate,
-          end: endOfYearDate
-        });
-      } else {
-        recurringDates = eachWeekOfInterval({
-          start: parsedDate,
-          end: endOfYearDate
-        });
-      }
-
-      recurringDates.forEach(date => {
+      recurringDates.forEach((date) => {
         updatedIncomeData.push({
           id: uuidv4(),
           name: newIncome.name,
@@ -255,7 +225,7 @@ const IncomeDashboard = () => {
       });
     } else {
       updatedIncomeData.push({
-        id: editingIncome.id,
+        id: editingIncome?.id || uuidv4(),
         name: newIncome.name,
         year: formattedYear,
         month: formattedMonth,
@@ -266,91 +236,113 @@ const IncomeDashboard = () => {
       });
     }
 
-    updatedIncomeData.sort((a, b) => {
-      if (a.year !== b.year) {
-        return a.year - b.year;
-      } else {
-        const monthOrder = {
-          January: 1, February: 2, March: 3, April: 4, May: 5, June: 6,
-          July: 7, August: 8, September: 9, October: 10, November: 11, December: 12
-        };
-        return monthOrder[a.month] - monthOrder[b.month];
-      }
-    });
-
+    updatedIncomeData.sort(sortIncomeByDate);
     setIncomeData(updatedIncomeData);
-    setEditMode(false);
-    setEditingIncome(null);
 
     if (currentUser) {
       const userIncomeRef = doc(db, 'users', currentUser.uid);
       await setDoc(userIncomeRef, { income: updatedIncomeData }, { merge: true });
     }
 
+    resetNewIncome();
+    setEditingIncome(null);
+  };
+
+  // Delete an income entry
+  const handleDeleteIncome = async (income: IncomeEntry, e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation(); // Prevent the click from bubbling up
+  
+    const updatedIncomeData = incomeData.filter((item) => item.id !== income.id);
+    setIncomeData(updatedIncomeData);
+  
+    if (currentUser) {
+      const userIncomeRef = doc(db, 'users', currentUser.uid);
+      await setDoc(userIncomeRef, { income: updatedIncomeData }, { merge: true });
+    }
+  };
+
+  // Validate income data
+  const validateIncome = (income: IncomeEntry): boolean => {
+    if (!income.name || !income.amount || !income.date) {
+      alert('Please fill out all fields.');
+      return false;
+    }
+
+    const parsedAmount = parseFloat(income.amount.toString());
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      alert('Please enter a valid positive amount.');
+      return false;
+    }
+
+    const parsedDate = parseISO(income.date);
+    if (!isValid(parsedDate)) {
+      alert('Invalid date format.');
+      return false;
+    }
+
+    return true;
+  };
+
+  // Reset the new income form
+  const resetNewIncome = () => {
     setNewIncome({
+      id: '',
       name: '',
-      amount: '',
+      amount: 0,
       date: new Date().toISOString().slice(0, 10),
       recurring: false,
       frequency: 'monthly',
+      month: format(new Date(), 'MMMM'),
+      year: getYear(new Date()),
     });
+    setEditMode(false);
   };
 
-
-  const handleDeleteIncome = async (income) => {
-    const updatedIncomeData = incomeData.filter(
-      (item) => item.id !== income.id
-    );
-
-    setIncomeData(updatedIncomeData);
-
-    if (currentUser) {
-      const userIncomeRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userIncomeRef, { income: updatedIncomeData }, { merge: true });
+  // Sort income data by year and month
+  const sortIncomeByDate = (a: IncomeEntry, b: IncomeEntry) => {
+    if (a.year !== b.year) {
+      return a.year - b.year;
+    } else {
+      const monthOrder: { [key: string]: number } = {
+        January: 1, February: 2, March: 3, April: 4, May: 5, June: 6,
+        July: 7, August: 8, September: 9, October: 10, November: 11, December: 12,
+      };
+      return monthOrder[a.month] - monthOrder[b.month];
     }
   };
-
-
-  const handleFilterYear = (e) => {
-    setFilterYear(parseInt(e.target.value));
-  };
-
-  const filteredIncomeData = groupedIncomeData.filter(
-    (item) => item.year === filterYear
-  );
-
-  return (
+  
+    return (
     <div className="flex h-screen w-screen bg-gray-100">
       <Sidebar page="Income" />
       <main className="flex flex-col flex-1 p-6 overflow-auto">
-      <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+        <div className="bg-white p-4 rounded-lg shadow-md mb-6">
           <DashboardHeader Page_Name="Income" />
         </div>
         
-  
         <div className="content-body grid grid-cols-2 gap-6"> {/* Grid layout for the top two cards */}
           {/* First Card */}
           <Card>
             <CardHeader>
               <h3 className="text-xl font-semibold">Income Overview</h3>
               <div className="mt-2">
-                <Label htmlFor="filterYear">Filter by year:</Label>
                 <Input
+                  label="Filter by year:"
                   type="number"
                   id="filterYear"
+                  name="filterYear"
                   value={filterYear}
-                  onChange={handleFilterYear}
+                  onChange={(e) => setFilterYear(Number(e.target.value))}
                   className="w-20 border border-gray-300 rounded-md p-1"
                 />
               </div>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={500}>
-                <LineChart data={filteredIncomeData}>
+                <LineChart data={groupedIncomeData}>
                   <XAxis dataKey="month" />
                   <YAxis tickFormatter={(value) => `£${value.toFixed(2)}`} />
                   <CartesianGrid strokeDasharray="3 3" />
-                  <Tooltip formatter={(value) => `£${parseFloat(value).toFixed(2)}`} />
+                  <Tooltip formatter={(value) => `£${parseFloat(value as string).toFixed(2)}`} />
                   <Line type="monotone" dataKey="amount" stroke="#3e9c35" activeDot={{ r: 8 }} />
                 </LineChart>
               </ResponsiveContainer>
@@ -365,8 +357,8 @@ const IncomeDashboard = () => {
             <CardContent>
               <form onSubmit={editMode ? handleUpdateIncome : handleAddIncome} className="space-y-6">
                 <div className="form-group">
-                  <Label htmlFor="name">Income Source:</Label>
                   <Input
+                    label="Income Source:"
                     type="text"
                     id="name"
                     name="name"
@@ -377,8 +369,8 @@ const IncomeDashboard = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <Label htmlFor="amount">Amount:</Label>
                   <Input
+                    label="Amount:"
                     type="number"
                     id="amount"
                     name="amount"
@@ -389,8 +381,8 @@ const IncomeDashboard = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <Label htmlFor="date">Date Received:</Label>
                   <Input
+                    label="Date Recieved:"
                     type="date"
                     id="date"
                     name="date"
@@ -401,18 +393,18 @@ const IncomeDashboard = () => {
                 </div>
                 <div className="form-group flex items-center space-x-2">
                   <Checkbox
+                    label="Recurring Income"
                     id="recurring"
                     name="recurring"
                     checked={newIncome.recurring}
                     onChange={handleIncomeChange}
                     className="h-5 w-5 text-blue-600 border-gray-300 rounded"
                   />
-                  <Label htmlFor="recurring">Recurring Income</Label>
                 </div>
                 {newIncome.recurring && (
                   <div className="form-group">
-                    <Label htmlFor="frequency">Frequency:</Label>
                     <Select
+                      label="Frequency:"
                       id="frequency"
                       name="frequency"
                       value={newIncome.frequency}
@@ -442,8 +434,8 @@ const IncomeDashboard = () => {
               <h3 className="text-xl font-semibold">Income Entries</h3>
               <div className="flex space-x-4 mt-2">
                 <div>
-                  <Label htmlFor="filterMonth">Filter by month:</Label>
                   <Select
+                    label="Filter by month:"
                     id="filterMonth"
                     value={filterMonth}
                     onChange={handleFilterMonth}
@@ -481,16 +473,16 @@ const IncomeDashboard = () => {
                       </span>
                     )}
                     <span className="font-medium">{income.date}</span>
-                    <span className="font-semibold">£ {parseFloat(income.amount).toFixed(2)}</span>
+                    <span className="font-semibold">£ {income.amount.toFixed(2)}</span>
                     <Button
                       onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteIncome(income);
+                        handleDeleteIncome(income, e as React.MouseEvent<HTMLButtonElement>);
                       }}
                       className="text-white-600 ml-4 bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
                     >
                       Delete
                     </Button>
+                    
                   </li>
                 ))}
               </ul>
@@ -500,6 +492,6 @@ const IncomeDashboard = () => {
       </main>
     </div>
   );
-}  
+}
 
 export default IncomeDashboard;

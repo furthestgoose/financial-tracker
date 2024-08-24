@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Sidebar = (props) => {
+const Sidebar = (props: { page: string; }) => {
   return (
     <aside className="sidebar w-64 bg-gray-900 text-white h-full overflow-y-auto">
       <div className="sidebar-header bg-gray-800 p-5">
