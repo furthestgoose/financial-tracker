@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import '../styling/signup.css';
 
 const Signup = () => {
   const emailRef = useRef();
@@ -37,36 +36,46 @@ const Signup = () => {
   };
 
   return (
-    <div className='signup-container'>
-    <form onSubmit={handleSubmit} className="signup-form">
-      <h2>Sign Up</h2>
-      {error && <p className="error-message">{error}</p>}
-      <input 
-        type="email" 
-        ref={emailRef} 
-        required 
-        placeholder="Email" 
-        pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$" 
-        title="Enter a valid email address"
-        className="signup-input"
-      />
-      <input 
-        type="password" 
-        ref={passwordRef} 
-        required 
-        placeholder="Password" 
-        onChange={(e) => validatePassword(e.target.value)}
-        className="signup-input"
-      />
-      <button 
-        disabled={loading || !passwordValid} 
-        type="submit" 
-        className="signup-button"
-      >
-        Sign Up
-      </button>
-      {!passwordValid && <p className="password-info">Password must be at least 6 characters long, include an uppercase letter, a lowercase letter, and a number.</p>}
-    </form>
+    <div className="flex items-center justify-center min-h-screen bg-green-300">
+      <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <h2 className="text-2xl font-semibold text-gray-800">Sign Up</h2>
+          {error && <p className="text-red-500">{error}</p>}
+          <div>
+            <input
+              type="email"
+              ref={emailRef}
+              required
+              placeholder="Email"
+              pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+              title="Enter a valid email address"
+              className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <input
+              type="password"
+              ref={passwordRef}
+              required
+              placeholder="Password"
+              onChange={(e) => validatePassword(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <button
+            disabled={loading || !passwordValid}
+            type="submit"
+            className="w-full py-3 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition duration-300"
+          >
+            Sign Up
+          </button>
+          {!passwordValid && (
+            <p className="text-sm text-orange-600">
+              Password must be at least 6 characters long, include an uppercase letter, a lowercase letter, and a number.
+            </p>
+          )}
+        </form>
+      </div>
     </div>
   );
 };

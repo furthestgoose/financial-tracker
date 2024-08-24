@@ -2,8 +2,6 @@ import React, { useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-import '../styling/login.css';
-
 const Login = () => {
   const emailRef = useRef();
   const passwordRef = useRef();
@@ -28,32 +26,38 @@ const Login = () => {
   };
 
   return (
-    <div className="login-background">
-    <div className="login-container">
-      <div className="login-form-wrapper">
-        <form className="login-form" onSubmit={handleSubmit}>
-          <h2>Log In</h2>
-          {error && <p className="error-message">{error}</p>}
-          <input
-            type="email"
-            ref={emailRef}
-            required
-            placeholder="Email"
-            className="login-input"
-          />
-          <input
-            type="password"
-            ref={passwordRef}
-            required
-            placeholder="Password"
-            className="login-input"
-          />
-          <button disabled={loading} type="submit" className="login-button">
+    <div className="flex items-center justify-center min-h-screen bg-green-300">
+      <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md">
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          <h2 className="text-2xl font-semibold text-gray-800">Log In</h2>
+          {error && <p className="text-red-500">{error}</p>}
+          <div>
+            <input
+              type="email"
+              ref={emailRef}
+              required
+              placeholder="Email"
+              className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <input
+              type="password"
+              ref={passwordRef}
+              required
+              placeholder="Password"
+              className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <button
+            disabled={loading}
+            type="submit"
+            className="w-full py-3 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition duration-300"
+          >
             {loading ? 'Logging In...' : 'Log In'}
           </button>
         </form>
       </div>
-    </div>
     </div>
   );
 };
