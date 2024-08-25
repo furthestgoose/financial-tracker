@@ -1,6 +1,5 @@
 import React, { HTMLProps, ReactNode } from 'react';
 
-// Define a type for the common props used in all Card components
 interface CardProps extends HTMLProps<HTMLDivElement> {
   children: ReactNode;
   className?: string;

@@ -21,7 +21,6 @@ const Input: React.FC<InputProps> = ({ label, id, ...props }) => {
   );
 };
 
-// Label Component
 interface LabelProps {
   htmlFor: string;
   children: React.ReactNode;
@@ -35,7 +34,6 @@ const Label: React.FC<LabelProps> = ({ htmlFor, children }) => {
   );
 };
 
-// Checkbox Component
 interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
   id: string;
   label: string;
@@ -57,7 +55,6 @@ const Checkbox: React.FC<CheckboxProps> = ({ id, label, ...props }) => {
   );
 };
 
-// Select Component
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label: string;
   id: string;

@@ -5,7 +5,6 @@ import DashboardHeader from './ui/Dashboard_header';
 const Settings: React.FC = () => {
   return (
     <div className="flex h-screen w-screen bg-gray-100">
-      {/* Sidebar */}
       <Sidebar page="Settings" />
 
       {/* Main Content */}

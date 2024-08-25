@@ -74,7 +74,6 @@ const IncomeDashboard: React.FC = () => {
       return compareDesc(dateA, dateB);
     });
 
-  // Effect to listen for income data changes
   useEffect(() => {
     if (currentUser) {
       const userIncomeRef = doc(db, 'users', currentUser.uid);
@@ -89,7 +88,6 @@ const IncomeDashboard: React.FC = () => {
     }
   }, [currentUser]);
 
-  // Effect to aggregate income data
   useEffect(() => {
     const aggregatedData = incomeData.reduce<Record<string, GroupedIncomeData>>((acc, item) => {
       const key = `${item.month}-${item.year}`;
@@ -112,7 +110,6 @@ const IncomeDashboard: React.FC = () => {
     setGroupedIncomeData(groupedDataArray);
   }, [incomeData]);
 
-  // Handle input field changes
   const handleIncomeChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     setNewIncome((prevIncome) => ({
@@ -121,12 +118,10 @@ const IncomeDashboard: React.FC = () => {
     }));
   };
 
-  // Handle month filter changes
   const handleFilterMonth = (e: ChangeEvent<HTMLSelectElement>) => {
     setFilterMonth(e.target.value);
   };
 
-  // Add new income entry
   const handleAddIncome = async (e: FormEvent) => {
     e.preventDefault();
     if (!validateIncome(newIncome)) return;
@@ -180,7 +175,6 @@ const IncomeDashboard: React.FC = () => {
     resetNewIncome();
   };
 
-  // Edit existing income entry
   const handleEditIncome = (income: IncomeEntry) => {
     const parsedDate = parse(income.date, 'dd/MM/yyyy', new Date());
     const formattedDate = format(parsedDate, 'yyyy-MM-dd');
@@ -193,7 +187,6 @@ const IncomeDashboard: React.FC = () => {
     setEditMode(true);
   };
 
-  // Update existing income entry
   const handleUpdateIncome = async (e: FormEvent) => {
     e.preventDefault();
     if (!validateIncome(newIncome)) return;
@@ -248,7 +241,6 @@ const IncomeDashboard: React.FC = () => {
     setEditingIncome(null);
   };
 
-  // Delete an income entry
   const handleDeleteIncome = async (income: IncomeEntry, e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation(); // Prevent the click from bubbling up
   
@@ -261,7 +253,6 @@ const IncomeDashboard: React.FC = () => {
     }
   };
 
-  // Validate income data
   const validateIncome = (income: IncomeEntry): boolean => {
     if (!income.name || !income.amount || !income.date) {
       alert('Please fill out all fields.');
@@ -283,7 +274,6 @@ const IncomeDashboard: React.FC = () => {
     return true;
   };
 
-  // Reset the new income form
   const resetNewIncome = () => {
     setNewIncome({
       id: '',
@@ -298,7 +288,6 @@ const IncomeDashboard: React.FC = () => {
     setEditMode(false);
   };
 
-  // Sort income data by year and month
   const sortIncomeByDate = (a: IncomeEntry, b: IncomeEntry) => {
     if (a.year !== b.year) {
       return a.year - b.year;

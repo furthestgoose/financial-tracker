@@ -10,8 +10,6 @@ import {
   getDoc,
   Firestore
 } from 'firebase/firestore';
-
-// Your web app's Firebase configuration
 interface FirebaseConfig {
   apiKey: string;
   authDomain: string;

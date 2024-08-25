@@ -1,9 +1,8 @@
 import React from 'react';
-import { useAuth } from '/Users/adambyford/Desktop/Portfolio_Projects/financial_tracker/src/contexts/AuthContext'; // Adjust the import path if necessary
-import { Button } from '/Users/adambyford/Desktop/Portfolio_Projects/financial_tracker/src/components/ui/button'; // Adjust the import path if necessary
+import { useAuth } from '/Users/adambyford/Desktop/Portfolio_Projects/financial_tracker/src/contexts/AuthContext'; 
+import { Button } from '/Users/adambyford/Desktop/Portfolio_Projects/financial_tracker/src/components/ui/button'; 
 import { useNavigate } from 'react-router-dom';
 
-// Define prop types for the component
 interface DashboardHeaderProps {
   Page_Name: string;
 }

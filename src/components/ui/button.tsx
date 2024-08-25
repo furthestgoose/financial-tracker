@@ -1,8 +1,7 @@
 import React, { ButtonHTMLAttributes, ReactNode } from 'react';
 
-// Define a type for the Button props
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void; // Update type to include event parameter
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void; 
   children: ReactNode;
   className?: string;
 }

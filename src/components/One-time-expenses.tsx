@@ -5,7 +5,6 @@ import DashboardHeader from './ui/Dashboard_header';
 const OneTimeExpenses: React.FC = () => {
   return (
     <div className="flex h-screen w-screen bg-gray-100">
-      {/* Sidebar */}
       <Sidebar page="One Time Expenses" />
 
       {/* Main Content */}

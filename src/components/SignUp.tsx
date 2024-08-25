@@ -3,7 +3,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const Signup: React.FC = () => {
-  // Typing useRef for email and password input elements
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const { signup } = useAuth();
@@ -12,7 +11,6 @@ const Signup: React.FC = () => {
   const [passwordValid, setPasswordValid] = useState<boolean>(false);
   const navigate = useNavigate();
 
-  // Typing the event parameter for handleSubmit
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -30,7 +28,6 @@ const Signup: React.FC = () => {
     setLoading(false);
   };
 
-  // Typing the parameter for validatePassword
   const validatePassword = (password: string) => {
     const hasUpperCase = /[A-Z]/.test(password);
     const hasLowerCase = /[a-z]/.test(password);
@@ -40,7 +37,6 @@ const Signup: React.FC = () => {
     setPasswordValid(hasUpperCase && hasLowerCase && hasNumber && hasMinLength);
   };
 
-  // Typing the parameter for onChange event
   const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => {
     validatePassword(e.target.value);
   };

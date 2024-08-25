@@ -1,12 +1,13 @@
-import React, { useContext, useState, useEffect, ReactNode } from "react";
-import { User, UserCredential } from "firebase/auth";
-import { auth } from "../firebase";
+import React, {ReactNode, useContext, useEffect, useState} from "react";
 import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
+    createUserWithEmailAndPassword,
+    onAuthStateChanged,
+    signInWithEmailAndPassword,
+    signOut,
+    User,
+    UserCredential
 } from "firebase/auth";
+import {auth} from "../firebase";
 
 interface AuthContextType {
   currentUser: User | null;
@@ -46,11 +47,10 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      setLoading(false);
+      return onAuthStateChanged(auth, (user) => {
+        setCurrentUser(user);
+        setLoading(false);
     });
-    return unsubscribe;
   }, []);
 
   const value: AuthContextType = {
