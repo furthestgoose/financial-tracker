@@ -146,20 +146,12 @@ const Expenses: React.FC = () => {
             </CardContent>
           </Card>
           <Card>
-            <CardHeader>Recent Expenses</CardHeader>
+            <CardHeader>Total Expenses</CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {expenses.slice(-5).reverse().map((expense) => (
-                  <div key={expense.id} className="flex justify-between items-center">
-                    <span>{expense.category}: £{expense.amount.toFixed(2)}</span>
-                    <Button onClick={() => deleteExpense(expense.id)} className="bg-red-500 hover:bg-red-700">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+              <p className="text-3xl font-bold">£ {totalExpenses.toFixed(2)}</p>
             </CardContent>
           </Card>
+
           <Card>
             <CardHeader>Expense Breakdown</CardHeader>
             <CardContent>
@@ -190,9 +182,18 @@ const Expenses: React.FC = () => {
           </Card>
         </div>
         <Card className="mt-6">
-          <CardHeader>Total Expenses</CardHeader>
+          <CardHeader>Recent Expenses</CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">£ {totalExpenses.toFixed(2)}</p>
+            <div className="space-y-2">
+              {expenses.slice(-5).reverse().map((expense) => (
+                <div key={expense.id} className="flex justify-between items-center">
+                  <span>{expense.category}: £{expense.amount.toFixed(2)}</span>
+                  <Button onClick={() => deleteExpense(expense.id)} className="bg-red-500 hover:bg-red-700">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </main>

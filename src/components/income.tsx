@@ -329,9 +329,9 @@ const IncomeDashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height={500}>
                 <LineChart data={groupedIncomeData}>
                   <XAxis dataKey="month" />
-                  <YAxis tickFormatter={(value) => `£${value.toFixed(2)}`} />
+                  <YAxis tickFormatter={(value) => `${value.toFixed(2)}`} />
                   <CartesianGrid strokeDasharray="3 3" />
-                  <Tooltip formatter={(value) => `£${parseFloat(value as string).toFixed(2)}`} />
+                  <Tooltip formatter={(value) => `${parseFloat(value as string).toFixed(2)}`} />
                   <Line type="monotone" dataKey="amount" stroke="#3e9c35" activeDot={{ r: 8 }} />
                 </LineChart>
               </ResponsiveContainer>
