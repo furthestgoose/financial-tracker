@@ -19,12 +19,10 @@ import Sidebar from './ui/sidebar';
 import DashboardHeader from './ui/Dashboard_header';
 import { v4 as uuidv4 } from 'uuid';
 
-
 const FINNHUB_API_KEY = process.env.REACT_APP_INVESTMENTS_KEY;
 
 interface Investment {
   id: string;
-  type: 'stock' | 'crypto';
   symbol: string;
   amount: number;
   price: number;
@@ -42,7 +40,6 @@ const InvestmentsDashboard: React.FC = () => {
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [newInvestment, setNewInvestment] = useState<Investment>({
     id: '',
-    type: 'stock',
     symbol: '',
     amount: 0,
     price: 0,
@@ -54,6 +51,7 @@ const InvestmentsDashboard: React.FC = () => {
   const [priceData, setPriceData] = useState<PriceData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [symbolError, setSymbolError] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentUser) {
@@ -70,7 +68,6 @@ const InvestmentsDashboard: React.FC = () => {
   }, [currentUser]);
 
   useEffect(() => {
-
     const fetchPrices = async () => {
       setLoading(true);
       setError(null);
@@ -79,42 +76,25 @@ const InvestmentsDashboard: React.FC = () => {
 
       for (const symbol of uniqueSymbols) {
         try {
-          const investment = investments.find(inv => inv.symbol === symbol);
-          let url;
-
-          if (investment?.type === 'crypto') {
-            // endpoint for crypto prices
-            url = `https://finnhub.io/api/v1/crypto/candle?symbol=${symbol}&resolution=1&from=${Math.floor(Date.now() / 1000) - 3600}&to=${Math.floor(Date.now() / 1000)}&token=${FINNHUB_API_KEY}`;
-          } else {
-            // Endpoint for stock prices
-            url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
-          }
-
+          const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
           const response = await axios.get(url);
-          console.log(`Response for ${symbol}:`, response.data);  // Log the response data
-          let price;
+          console.log(`Finnhub response for ${symbol}:`, response.data);
+          const price = parseFloat(response.data.c);
 
-          if (investment?.type === 'crypto') {
-            // Check if we got valid data
-            if (response.data && response.data.c && response.data.c.length > 0) {
-              price = response.data.c[response.data.c.length - 1];  // Use the last closing price
-            }
+          if (price !== undefined) {
+            newPriceData.push({ symbol, price });
           } else {
-            price = parseFloat(response.data.c);  // 'c' is the current price for stocks
+            console.warn(`No price data available for ${symbol}`);
           }
-
-          newPriceData.push({ symbol, price });
         } catch (err) {
           console.error(`Error fetching price for ${symbol}:`, err);
-          setError(`Failed to fetch price for ${symbol}. Please try again later.`);
+          setError((prevError) => prevError ? `${prevError}\nFailed to fetch price for ${symbol}.` : `Failed to fetch price for ${symbol}.`);
         }
       }
 
       setPriceData(newPriceData);
       setLoading(false);
     };
-
-
 
     if (investments.length > 0) {
       fetchPrices();
@@ -129,11 +109,32 @@ const InvestmentsDashboard: React.FC = () => {
       ...prev,
       [name]: name === 'amount' || name === 'price' ? parseFloat(value) : value,
     }));
+
+    if (name === 'symbol') {
+      setSymbolError(null);
+    }
+  };
+
+  const validateSymbol = async (symbol: string): Promise<boolean> => {
+    try {
+      const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
+      const response = await axios.get(url);
+      return response.data.c !== null;
+    } catch (err) {
+      console.error(`Error validating symbol ${symbol}:`, err);
+      return false;
+    }
   };
 
   const handleAddInvestment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateInvestment(newInvestment)) return;
+
+    const isValidSymbol = await validateSymbol(newInvestment.symbol);
+    if (!isValidSymbol) {
+      setSymbolError('Invalid stock symbol. Please enter a valid NYSE or NASDAQ symbol.');
+      return;
+    }
 
     const investmentToAdd = {
       ...newInvestment,
@@ -160,6 +161,12 @@ const InvestmentsDashboard: React.FC = () => {
   const handleUpdateInvestment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateInvestment(newInvestment)) return;
+
+    const isValidSymbol = await validateSymbol(newInvestment.symbol);
+    if (!isValidSymbol) {
+      setSymbolError('Invalid stock symbol. Please enter a valid NYSE or NASDAQ symbol.');
+      return;
+    }
 
     const updatedInvestments = investments.map(inv =>
       inv.id === editingInvestment?.id ? newInvestment : inv
@@ -203,7 +210,6 @@ const InvestmentsDashboard: React.FC = () => {
   const resetNewInvestment = () => {
     setNewInvestment({
       id: '',
-      type: 'stock',
       symbol: '',
       amount: 0,
       price: 0,
@@ -211,8 +217,8 @@ const InvestmentsDashboard: React.FC = () => {
       action: 'buy',
     });
     setEditMode(false);
+    setSymbolError(null);
   };
-
 
   const calculatePortfolioValue = () => {
     return investments.reduce((total, inv) => {
@@ -221,17 +227,28 @@ const InvestmentsDashboard: React.FC = () => {
     }, 0);
   };
 
-  const chartData = investments.map(inv => ({
-    date: inv.date,
-    value: inv.amount * inv.price * (inv.action === 'buy' ? 1 : -1),
-  })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const calculateCumulativePortfolioValue = () => {
+    let cumulativeValue: number = 0;
+    return investments
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .map(inv => {
+        const currentPrice = priceData.find(p => p.symbol === inv.symbol)?.price || inv.price;
+        cumulativeValue += (inv.action === 'buy' ? 1 : -1) * inv.amount * currentPrice;
+        return {
+          date: inv.date,
+          cumulativeValue: parseFloat(cumulativeValue.toFixed(2)),
+        };
+      });
+  };
+
+  const chartData = calculateCumulativePortfolioValue();
 
   return (
     <div className="flex h-screen w-screen bg-gray-100">
       <Sidebar page="Investments" />
       <main className="flex flex-col flex-1 p-6 overflow-auto">
         <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-          <DashboardHeader Page_Name="Investments" />
+          <DashboardHeader Page_Name="Stock Investments" />
         </div>
 
         <div className="content-body grid grid-cols-2 gap-6">
@@ -246,7 +263,7 @@ const InvestmentsDashboard: React.FC = () => {
                   <YAxis />
                   <CartesianGrid strokeDasharray="3 3" />
                   <Tooltip />
-                  <Line type="monotone" dataKey="value" stroke="#8884d8" />
+                  <Line type="monotone" dataKey="cumulativeValue" stroke="#8884d8" />
                 </LineChart>
               </ResponsiveContainer>
               <div className="mt-4">
@@ -264,25 +281,16 @@ const InvestmentsDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <form onSubmit={editMode ? handleUpdateInvestment : handleAddInvestment} className="space-y-4">
-                <Select
-                  label="Type"
-                  id="type"
-                  name="type"
-                  value={newInvestment.type}
-                  onChange={handleInvestmentChange}
-                >
-                  <option value="stock">Stock</option>
-                  <option value="crypto">Cryptocurrency</option>
-                </Select>
                 <Input
-                  label="Symbol"
+                  label="Stock Symbol"
                   type="text"
                   id="symbol"
                   name="symbol"
                   value={newInvestment.symbol}
                   onChange={handleInvestmentChange}
-                  placeholder="e.g., AAPL, BTC"
+                  placeholder="e.g., AAPL"
                 />
+                {symbolError && <p className="text-red-500">{symbolError}</p>}
                 <Input
                   label="Amount"
                   type="number"
@@ -290,7 +298,7 @@ const InvestmentsDashboard: React.FC = () => {
                   name="amount"
                   value={newInvestment.amount}
                   onChange={handleInvestmentChange}
-                  placeholder="Number of shares or coins"
+                  placeholder="Number of shares"
                 />
                 <Input
                   label="Price"
@@ -299,7 +307,7 @@ const InvestmentsDashboard: React.FC = () => {
                   name="price"
                   value={newInvestment.price}
                   onChange={handleInvestmentChange}
-                  placeholder="Price per share or coin"
+                  placeholder="Price per share"
                 />
                 <Input
                   label="Date"
@@ -325,6 +333,7 @@ const InvestmentsDashboard: React.FC = () => {
               </form>
             </CardContent>
           </Card>
+
           <Card className="col-span-2">
             <CardHeader>
               <h3 className="text-xl font-semibold">Investment Entries</h3>
@@ -334,7 +343,7 @@ const InvestmentsDashboard: React.FC = () => {
                 {investments.map((investment) => (
                   <li key={investment.id} className="py-4 flex justify-between items-center">
                     <div>
-                      <p className="font-semibold">{investment.symbol} ({investment.type})</p>
+                      <p className="font-semibold">{investment.symbol}</p>
                       <p>{investment.action === 'buy' ? 'Bought' : 'Sold'} {investment.amount} @ ${investment.price}</p>
                       <p className="text-sm text-gray-500">{investment.date}</p>
                     </div>
