@@ -21,7 +21,7 @@ export const Card: React.FC<CardProps> = ({ children, className, ...props }) => 
 export const CardHeader: React.FC<CardProps> = ({ children, className, ...props }) => {
   return (
     <div
-      className={`bg-gray-100 px-4 py-3 border-b ${className}`}
+      className={`bg-green-600 text-white px-4 py-3 border-b ${className}`}
       {...props}
     >
       {children}

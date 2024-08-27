@@ -10,6 +10,7 @@ import { db, doc, setDoc, onSnapshot } from '../firebase';
 import { v4 as uuidv4 } from 'uuid';
 
 type ExpenseCategory = 'Food' | 'Transportation' | 'Entertainment' | 'Clothing' | 'Insurance' | 'Personal' | 'Debt' | 'Utilities' | 'Housing' | 'Other';
+type RecurringFrequency = 'weekly' | 'monthly' | 'none';
 
 interface Expense {
   id: string;
@@ -17,7 +18,8 @@ interface Expense {
   amount: number;
   category: ExpenseCategory;
   date: string;
-  recurring: boolean;  // Added property
+  recurring: RecurringFrequency;
+  endDate?: string;
 }
 
 interface HabitData {
@@ -35,12 +37,20 @@ const categories: ExpenseCategory[] = ['Food', 'Transportation', 'Entertainment'
 const Expenses: React.FC = () => {
   const { currentUser } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [newExpense, setNewExpense] = useState<{ name: string; amount: string; category: ExpenseCategory; date: string; recurring: boolean }>({
+  const [newExpense, setNewExpense] = useState<{
+    name: string;
+    amount: string;
+    category: ExpenseCategory;
+    date: string;
+    recurring: RecurringFrequency;
+    endDate: string;
+  }>({
     name: '',
     amount: '',
     category: 'Other',
     date: new Date().toISOString().split('T')[0],
-    recurring: false
+    recurring: 'none',
+    endDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0] // End of current year
   });
   const [habitData, setHabitData] = useState<HabitData[]>([]);
   const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
@@ -80,7 +90,7 @@ const Expenses: React.FC = () => {
     // Update category data
     const newCategoryData: CategoryData[] = categories.map(category => ({
       name: category,
-      amount: filteredExpenses.filter(e => e.category === category).reduce((sum, e) => sum + e.amount, 0)
+      amount: Number(filteredExpenses.filter(e => e.category === category).reduce((sum, e) => sum + e.amount, 0).toFixed(2))
     }));
     setCategoryData(newCategoryData);
   };
@@ -104,22 +114,55 @@ const Expenses: React.FC = () => {
     }
 
     if (newExpense.name && newExpense.amount && newExpense.category && newExpense.date) {
-      const expenseToAdd: Expense = {
+      const baseExpense: Expense = {
         id: uuidv4(),
         name: newExpense.name,
         amount: parseFloat(newExpense.amount),
         category: newExpense.category,
         date: newExpense.date,
-        recurring: newExpense.recurring  // Include recurring
+        recurring: newExpense.recurring,
+        endDate: newExpense.recurring !== 'none' ? newExpense.endDate : undefined
       };
-      const updatedExpenses = [...expenses, expenseToAdd];
+
+      let expensesToAdd: Expense[] = [baseExpense];
+
+      if (newExpense.recurring !== 'none') {
+        const startDate = new Date(newExpense.date);
+        const endDate = new Date(newExpense.endDate);
+        let currentDate = new Date(startDate);
+
+        while (currentDate <= endDate) {
+          if (currentDate > startDate) {
+            expensesToAdd.push({
+              ...baseExpense,
+              id: uuidv4(),
+              date: currentDate.toISOString().split('T')[0]
+            });
+          }
+
+          if (newExpense.recurring === 'weekly') {
+            currentDate.setDate(currentDate.getDate() + 7);
+          } else if (newExpense.recurring === 'monthly') {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+          }
+        }
+      }
+
+      const updatedExpenses = [...expenses, ...expensesToAdd];
 
       if (currentUser) {
         const userExpensesRef = doc(db, 'users', currentUser.uid);
         await setDoc(userExpensesRef, { expenses: updatedExpenses }, { merge: true });
       }
 
-      setNewExpense({ name: '', amount: '', category: 'Other', date: new Date().toISOString().split('T')[0], recurring: false });
+      setNewExpense({
+        name: '',
+        amount: '',
+        category: 'Other',
+        date: new Date().toISOString().split('T')[0],
+        recurring: 'none',
+        endDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0]
+      });
     }
   };
 
@@ -135,14 +178,13 @@ const Expenses: React.FC = () => {
   const filteredExpenses = expenses.filter(expense => expense.date >= dateRange.start && expense.date <= dateRange.end);
   const totalExpenses: number = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
-  // Calculate additional data based on filtered expenses
   const dailyExpenses = filteredExpenses.reduce<Record<string, number>>((acc, expense) => {
     acc[expense.date] = (acc[expense.date] || 0) + expense.amount;
     return acc;
   }, {});
 
   const mostSpentDay = Object.entries(dailyExpenses).reduce((max, [date, amount]) => (amount > max.amount ? { date, amount } : max), { date: '', amount: 0 });
-  const highestExpense = filteredExpenses.reduce((max, expense) => (expense.amount > max.amount ? expense : max), { id: '', name: '', amount: 0, category: 'Other', date: '', recurring: false });
+  const highestExpense = filteredExpenses.reduce((max, expense) => (expense.amount > max.amount ? expense : max), { id: '', name: '', amount: 0, category: 'Other', date: '', recurring: 'none' });
 
   const averageDailySpending = (totalExpenses / Object.keys(dailyExpenses).length).toFixed(2);
 
@@ -214,15 +256,23 @@ const Expenses: React.FC = () => {
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setNewExpense({ ...newExpense, date: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
-                <div className="flex items-center">
+                <select
+                  value={newExpense.recurring}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewExpense({ ...newExpense, recurring: e.target.value as RecurringFrequency })}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="none">Not Recurring</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+                {newExpense.recurring !== 'none' && (
                   <input
-                    type="checkbox"
-                    checked={newExpense.recurring}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setNewExpense({ ...newExpense, recurring: e.target.checked })}
-                    className="mr-2"
+                    type="date"
+                    value={newExpense.endDate}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setNewExpense({ ...newExpense, endDate: e.target.value })}
+                    className="w-full p-2 border rounded"
                   />
-                  <label>Recurring</label>
-                </div>
+                )}
                 <Button type="submit" className="w-full flex items-center justify-center bg-green-600 hover:bg-green-700 focus:outline-none">
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
                 </Button>

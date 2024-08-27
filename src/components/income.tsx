@@ -321,7 +321,7 @@ const IncomeDashboard: React.FC = () => {
                   name="filterYear"
                   value={filterYear}
                   onChange={(e) => setFilterYear(Number(e.target.value))}
-                  className="w-20 border border-gray-300 rounded-md p-1"
+                  className=" text-black w-20 border border-gray-300 rounded-md p-1"
                 />
               </div>
             </CardHeader>
@@ -428,7 +428,7 @@ const IncomeDashboard: React.FC = () => {
                     id="filterMonth"
                     value={filterMonth}
                     onChange={handleFilterMonth}
-                    className="border border-gray-300 rounded-md p-1"
+                    className="border border-gray-300 rounded-md p-1 text-black"
                   >
                     <option value="">All Months</option>
                     <option value="January">January</option>
