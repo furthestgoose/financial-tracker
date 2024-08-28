@@ -33,7 +33,7 @@ const Bank_Accounts: React.FC = () => {
     }
   }, [currentUser]);
   const formatNumber = (value: number): string => {
-    return value.toLocaleString(); // Default formatting with commas for thousands
+    return value.toLocaleString();
   };
 
   const handleAddAccount = async (e: React.FormEvent) => {
@@ -72,11 +72,10 @@ const Bank_Accounts: React.FC = () => {
       const userRef = doc(db, 'users', currentUser.uid);
       const batch = writeBatch(db);
 
-      // Update bank accounts
       batch.set(userRef, { bankAccounts: updatedBankAccounts }, { merge: true });
 
       await batch.commit();
-      setBankAccounts(updatedBankAccounts); // Update local state
+      setBankAccounts(updatedBankAccounts);
     }
   };
 

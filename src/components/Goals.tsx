@@ -75,7 +75,7 @@ const Goals: React.FC = () => {
       id: uuidv4(),
       name: newGoal.name,
       amount: amount,
-      savedAmount: 0,  // Initialize with zero saved amount
+      savedAmount: 0, 
       accountId: newGoal.accountId
     };
 
@@ -132,11 +132,11 @@ const Goals: React.FC = () => {
     batch.set(userRef, { bankAccounts: updatedAccounts }, { merge: true });
 
     await batch.commit();
-    setAmountToAdd({ ...amountToAdd, [goalId]: '' }); // Clear the input field specific to this goal
+    setAmountToAdd({ ...amountToAdd, [goalId]: '' });
   };
 
   const formatNumber = (value: number): string => {
-    return value.toLocaleString(); // Default formatting with commas for thousands
+    return value.toLocaleString();
   };
 
   return (

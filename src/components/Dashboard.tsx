@@ -146,7 +146,6 @@ const Dashboard: React.FC = () => {
     const dayIncome = incomes.filter(income => income.date === dayStr).reduce((sum, income) => sum + income.amount, 0);
     const dayExpense = expenses.filter(expense => expense.date === dayStr).reduce((sum, expense) => sum + expense.amount, 0);
 
-    // Update the balance based on previous day's balance
     const previousDayBalance = daysInMonth
       .slice(0, daysInMonth.indexOf(day))
       .reduce((acc, currDay) => {
@@ -164,7 +163,6 @@ const Dashboard: React.FC = () => {
     };
   });
 
-  // Calculate portfolio value over time
   const calculatePortfolioValueOverTime = () => {
     const result = investments
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
@@ -175,7 +173,6 @@ const Dashboard: React.FC = () => {
           ? lastValue + (investment.amount * currentPrice)
           : lastValue - (investment.amount * currentPrice);
 
-        // Round to 2 decimal places
         const roundedValue = parseFloat(newValue.toFixed(2));
 
         acc.push({ date: investment.date, value: roundedValue });
@@ -188,7 +185,6 @@ const Dashboard: React.FC = () => {
 
   const portfolioValueOverTime = calculatePortfolioValueOverTime();
 
-  // Calculate current holdings
   const currentHoldings = investments.reduce((acc, investment) => {
     if (!acc[investment.symbol]) {
       acc[investment.symbol] = 0;
@@ -266,7 +262,7 @@ const Dashboard: React.FC = () => {
                       data={pieChartData}
                       dataKey="value"
                       nameKey="name"
-                      outerRadius="80%" // Adjust outerRadius to fit well within the container
+                      outerRadius="80%"
                       fill="#8884d8"
                     >
                       {pieChartData.map((_, index) => (

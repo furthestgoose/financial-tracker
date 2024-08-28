@@ -112,7 +112,7 @@ const InvestmentsDashboard: React.FC = () => {
 
     if (investments.length > 0) {
       fetchPrices();
-      const interval = setInterval(fetchPrices, 60000); // Update every minute
+      const interval = setInterval(fetchPrices, 60000); 
       return () => clearInterval(interval);
     }
   }, [investments]);
