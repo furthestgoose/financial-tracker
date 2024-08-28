@@ -1,14 +1,15 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2, Edit } from 'lucide-react';
 import Sidebar from './ui/sidebar';
 import DashboardHeader from './ui/Dashboard_header';
 import { Card, CardHeader, CardContent } from './ui/card';
 import { Button } from './ui/button';
-import { Select } from './ui/form';
+import { Input, Select } from './ui/form';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 import { db, doc, setDoc, onSnapshot, writeBatch } from '../firebase';
 import { v4 as uuidv4 } from 'uuid';
+import { format, parseISO, isValid } from 'date-fns';
 
 type ExpenseCategory = 'Food' | 'Transportation' | 'Entertainment' | 'Clothing' | 'Insurance' | 'Personal' | 'Debt' | 'Utilities' | 'Housing' | 'Other';
 type RecurringFrequency = 'weekly' | 'monthly' | 'none';
@@ -17,10 +18,10 @@ interface Expense {
   id: string;
   name: string;
   amount: number;
-  category: string;
+  category: ExpenseCategory;
   date: string;
   recurring: RecurringFrequency;
-  endDate?: string; // Use `undefined` instead of `null`
+  endDate?: string;
   bankAccountId: string;
 }
 
@@ -46,17 +47,10 @@ const Expenses: React.FC = () => {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const { currentUser } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [newExpense, setNewExpense] = useState<{
-    name: string;
-    amount: string;
-    category: ExpenseCategory;
-    date: string;
-    recurring: RecurringFrequency;
-    endDate: string;
-    bankAccountId: string;
-  }>({
+  const [newExpense, setNewExpense] = useState<Expense>({
+    id: '',
     name: '',
-    amount: '',
+    amount: 0,
     category: 'Other',
     date: new Date().toISOString().split('T')[0],
     recurring: 'none',
@@ -66,21 +60,23 @@ const Expenses: React.FC = () => {
   const [habitData, setHabitData] = useState<HabitData[]>([]);
   const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
   const [dateRange, setDateRange] = useState({
-    start: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split('T')[0],
+    start: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0]
   });
+  const [editMode, setEditMode] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
       const userExpensesRef = doc(db, 'users', currentUser.uid);
       const unsub = onSnapshot(userExpensesRef, (doc) => {
         const data = doc.data();
-        if (data && data.expenses) {
-          setExpenses(data.expenses);
-          updateChartData(data.expenses, dateRange.start, dateRange.end);
+        if (data) {
+          if (data.expenses) {
+            setExpenses(data.expenses);
+            updateChartData(data.expenses, dateRange.start, dateRange.end);
+          }
           if (data.bankAccounts) {
             setBankAccounts(data.bankAccounts);
-            // If there's only one bank account, select it by default
             if (data.bankAccounts.length === 1) {
               setNewExpense(prev => ({ ...prev, bankAccountId: data.bankAccounts[0].id }));
             }
@@ -122,73 +118,62 @@ const Expenses: React.FC = () => {
     }
     return dates;
   };
-  const addExpense = async (e: FormEvent) => {
+
+  const handleExpenseChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setNewExpense(prev => ({
+      ...prev,
+      [name]: name === 'amount' ? parseFloat(value) : value
+    }));
+  };
+
+  const validateExpense = (expense: Expense): boolean => {
+    if (!expense.name || expense.amount <= 0 || !expense.date || !expense.bankAccountId) {
+      alert('Please fill in all required fields and ensure the amount is greater than zero.');
+      return false;
+    }
+
+    const parsedDate = parseISO(expense.date);
+    if (!isValid(parsedDate)) {
+      alert('Invalid date format.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const addOrUpdateExpense = async (e: FormEvent) => {
     e.preventDefault();
+    if (!validateExpense(newExpense)) return;
 
-    // Validate input
-    if (!newExpense.name || !newExpense.amount || !newExpense.category || !newExpense.date || !newExpense.bankAccountId) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
-    const expenseAmount = parseFloat(newExpense.amount);
-    if (isNaN(expenseAmount) || expenseAmount <= 0) {
-      alert('Please enter a valid positive number for the amount');
-      return;
-    }
-
-    const baseExpense: Partial<Expense> = {
-      name: newExpense.name,
-      amount: expenseAmount,
-      category: newExpense.category,
-      date: newExpense.date,
-      recurring: newExpense.recurring,
-      bankAccountId: newExpense.bankAccountId,
-      endDate: newExpense.recurring !== 'none' ? newExpense.endDate : undefined,  // Use `undefined` if not recurring
+    const expenseToAdd: Expense = {
+      ...newExpense,
+      id: editMode ? newExpense.id : uuidv4(),
     };
 
-    const expensesToAdd: Expense[] = [baseExpense as Expense];
-
-    if (newExpense.recurring !== 'none') {
-      const startDate = new Date(newExpense.date);
-      const endDate = new Date(newExpense.endDate);
-      let currentDate = new Date(startDate);
-
-      while (currentDate <= endDate) {
-        if (currentDate > startDate) {
-          expensesToAdd.push({
-            ...baseExpense,
-            id: uuidv4(),
-            date: currentDate.toISOString().split('T')[0],
-          } as Expense);
-        }
-
-        if (newExpense.recurring === 'weekly') {
-          currentDate.setDate(currentDate.getDate() + 7);
-        } else if (newExpense.recurring === 'monthly') {
-          currentDate.setMonth(currentDate.getMonth() + 1);
-        }
-      }
+    let updatedExpenses: Expense[] = [];
+    if (editMode) {
+      updatedExpenses = expenses.map(exp => exp.id === expenseToAdd.id ? expenseToAdd : exp);
+    } else {
+      updatedExpenses = [...expenses, expenseToAdd];
     }
 
     if (currentUser) {
       const userRef = doc(db, 'users', currentUser.uid);
       const batch = writeBatch(db);
 
-      // Ensure endDate is either a string or `undefined`
-      const cleanExpense: Partial<Expense> = {
-        ...baseExpense,
-        endDate: baseExpense.endDate !== undefined ? baseExpense.endDate : undefined
-      };
+      // Update expenses
+      batch.set(userRef, { expenses: updatedExpenses }, { merge: true });
 
-      batch.set(userRef, { expenses: [...expenses, ...expensesToAdd] }, { merge: true });
-
-      // Handle bank account update
-      const selectedAccount = bankAccounts.find(account => account.id === newExpense.bankAccountId);
+      // Update bank account balance
+      const selectedAccount = bankAccounts.find(account => account.id === expenseToAdd.bankAccountId);
       if (selectedAccount) {
+        const oldExpense = editMode ? expenses.find(exp => exp.id === expenseToAdd.id) : null;
+        const balanceChange = oldExpense ? oldExpense.amount - expenseToAdd.amount : -expenseToAdd.amount;
+
         const updatedAccounts = bankAccounts.map(account =>
           account.id === selectedAccount.id
-            ? { ...account, balance: account.balance - expenseAmount }
+            ? { ...account, balance: account.balance + balanceChange }
             : account
         );
         batch.set(userRef, { bankAccounts: updatedAccounts }, { merge: true });
@@ -200,20 +185,13 @@ const Expenses: React.FC = () => {
       await batch.commit();
     }
 
-    // Reset form
-    setNewExpense({
-      name: '',
-      amount: '',
-      category: 'Other',
-      date: new Date().toISOString().split('T')[0],
-      recurring: 'none',
-      endDate: 'none', // Ensure endDate is `undefined` when not used
-      bankAccountId: '',
-    });
+    resetForm();
   };
 
-
-
+  const handleEditExpense = (expense: Expense) => {
+    setNewExpense(expense);
+    setEditMode(true);
+  };
 
   const deleteExpense = async (id: string) => {
     const expenseToDelete = expenses.find(expense => expense.id === id);
@@ -241,189 +219,196 @@ const Expenses: React.FC = () => {
     }
   };
 
+  const resetForm = () => {
+    setNewExpense({
+      id: '',
+      name: '',
+      amount: 0,
+      category: 'Other',
+      date: new Date().toISOString().split('T')[0],
+      recurring: 'none',
+      endDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0],
+      bankAccountId: '',
+    });
+    setEditMode(false);
+  };
+
   const filteredExpenses = expenses.filter(expense => expense.date >= dateRange.start && expense.date <= dateRange.end);
   const totalExpenses: number = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
-  const dailyExpenses = filteredExpenses.reduce<Record<string, number>>((acc, expense) => {
-    acc[expense.date] = (acc[expense.date] || 0) + expense.amount;
-    return acc;
-  }, {});
-
-  const mostSpentDay = Object.keys(dailyExpenses).reduce((max, date) => dailyExpenses[date] > max.amount ? { date, amount: dailyExpenses[date] } : max, { date: '', amount: 0 });
-  const highestExpense = filteredExpenses.reduce((max, expense) => expense.amount > max.amount ? expense : max, { id: '', name: '', amount: 0, category: 'Other', date: '', recurring: 'none', bankAccountId: '' });
-  const averageDailySpending = (filteredExpenses.length > 0 ? totalExpenses / Object.keys(dailyExpenses).length : 0).toFixed(2);
-
   return (
-    <div className="flex h-screen w-screen bg-gray-100">
-      <Sidebar page="Expenses" />
-      <main className="flex-1 flex flex-col p-6 overflow-auto">
-        <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-          <DashboardHeader Page_Name="Expenses" />
-        </div>
+  <div className="flex h-screen w-screen bg-gray-100">
+    <Sidebar page="Expenses" />
+    <main className="flex-1 flex flex-col p-6 overflow-auto">
+      <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+        <DashboardHeader Page_Name="Expenses" />
+      </div>
 
-        {/* Date Range Controls */}
-        <div className="mb-6">
-          <Card>
-            <CardHeader>Date Range</CardHeader>
-            <CardContent>
-              <div className="flex space-x-2">
+      {/* Date Range Controls */}
+      <div className="mb-6">
+        <Card>
+          <CardHeader>Date Range</CardHeader>
+          <CardContent>
+            <div className="flex space-x-2">
+              <input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                className="p-2 border rounded"
+              />
+              <input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                className="p-2 border rounded"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>Add New Expense</CardHeader>
+          <CardContent>
+            <form onSubmit={addOrUpdateExpense} className="space-y-2">
+              <input
+                type="text"
+                placeholder="Expense Name"
+                value={newExpense.name}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setNewExpense({ ...newExpense, name: e.target.value })}
+                className="w-full p-2 border rounded"
+              />
+              <input
+                type="number"
+                placeholder="Amount"
+                value={newExpense.amount}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setNewExpense({ ...newExpense, amount: parseFloat(e.target.value) })}
+                className="w-full p-2 border rounded"
+              />
+              <select
+                value={newExpense.category}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewExpense({ ...newExpense, category: e.target.value as ExpenseCategory })}
+                className="w-full p-2 border rounded"
+              >
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="date"
+                value={newExpense.date}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setNewExpense({ ...newExpense, date: e.target.value })}
+                className="w-full p-2 border rounded"
+              />
+              <select
+                value={newExpense.recurring}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewExpense({ ...newExpense, recurring: e.target.value as RecurringFrequency })}
+                className="w-full p-2 border rounded"
+              >
+                <option value="none">Not Recurring</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+              {newExpense.recurring !== 'none' && (
                 <input
                   type="date"
-                  value={dateRange.start}
-                  onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                  className="p-2 border rounded"
+                  value={newExpense.endDate}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNewExpense({ ...newExpense, endDate: e.target.value })}
+                  className="w-full p-2 border rounded"
                 />
-                <input
-                  type="date"
-                  value={dateRange.end}
-                  onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                  className="p-2 border rounded"
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              )}
+              <select
+                value={newExpense.bankAccountId}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewExpense({ ...newExpense, bankAccountId: e.target.value })}
+                className="w-full p-2 border rounded"
+              >
+                <option value="">Select Bank Account</option>
+                {bankAccounts.map(account => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} (Balance: £{account.balance.toFixed(2)})
+                  </option>
+                ))}
+              </select>
+              <Button type="submit" className="w-full flex items-center justify-center bg-green-600 hover:bg-green-700 focus:outline-none">
+                <PlusCircle className="mr-2 h-4 w-4" /> {editMode ? 'Update' : 'Add'} Expense
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>Total Expenses</CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">£ {totalExpenses.toFixed(2)}</p>
+          </CardContent>
+        </Card>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>Add New Expense</CardHeader>
-            <CardContent>
-              <form onSubmit={addExpense} className="space-y-2">
-                <input
-                  type="text"
-                  placeholder="Expense Name"
-                  value={newExpense.name}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNewExpense({ ...newExpense, name: e.target.value })}
-                  className="w-full p-2 border rounded"
-                />
-                <input
-                  type="number"
-                  placeholder="Amount"
-                  value={newExpense.amount}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNewExpense({ ...newExpense, amount: e.target.value })}
-                  className="w-full p-2 border rounded"
-                />
-                <select
-                  value={newExpense.category}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewExpense({ ...newExpense, category: e.target.value as ExpenseCategory })}
-                  className="w-full p-2 border rounded"
-                >
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="date"
-                  value={newExpense.date}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNewExpense({ ...newExpense, date: e.target.value })}
-                  className="w-full p-2 border rounded"
-                />
-                <select
-                  value={newExpense.recurring}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewExpense({ ...newExpense, recurring: e.target.value as RecurringFrequency })}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="none">Not Recurring</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-                {newExpense.recurring !== 'none' && (
-                  <input
-                    type="date"
-                    value={newExpense.endDate}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setNewExpense({ ...newExpense, endDate: e.target.value })}
-                    className="w-full p-2 border rounded"
-                  />
-                )}
-                <select
-                  value={newExpense.bankAccountId}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewExpense({ ...newExpense, bankAccountId: e.target.value })}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="">Select Bank Account</option>
-                  {bankAccounts.map(account => (
-                    <option key={account.id} value={account.id}>
-                      {account.name} (Balance: £{account.balance.toFixed(2)})
-                    </option>
-                  ))}
-                </select>
-                <Button type="submit" className="w-full flex items-center justify-center bg-green-600 hover:bg-green-700 focus:outline-none">
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>Total Expenses</CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">£ {totalExpenses.toFixed(2)}</p>
-              <p className="mt-2">Most Spent Day: {mostSpentDay.date} (£ {mostSpentDay.amount.toFixed(2)})</p>
-              <p className="mt-2">Highest Single Expense: {highestExpense.name} (£ {highestExpense.amount.toFixed(2)})</p>
-              <p className="mt-2">Average Daily Spending: £ {isNaN(parseFloat(averageDailySpending)) ? "0.00" : averageDailySpending}</p>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader>Expense Breakdown</CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={categoryData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="amount" fill="#8884d8" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>Expense Habit Tracking</CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={habitData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" fill="#82ca9d" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader>Expense Breakdown</CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={categoryData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="amount" fill="#8884d8" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>Expense Habit Tracking</CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={habitData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#82ca9d" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+        {/* Recent Expenses Section */}
+        <Card className="col-span-1 md:col-span-2">
+          <CardHeader>Recent Expenses</CardHeader>
+          <CardContent className="h-full">
+            <div className="space-y-2">
+              {filteredExpenses
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .slice(0, 5)
+                .map(expense => (
+                  <div key={expense.id} className="flex justify-between items-center">
+                    <span>{expense.name} - {expense.category}: £{expense.amount.toFixed(2)} ({expense.date})</span>
+                    <span className="font-medium">
+                      {bankAccounts.find(account => account.id === expense.bankAccountId)?.name || 'Unknown Account'}
+                    </span>
+                    {expense.recurring !== 'none' && <span className="text-green-500">Recurring</span>}
 
-          {/* Recent Expenses Section */}
-          <Card className="col-span-1 md:col-span-2">
-            <CardHeader>Recent Expenses</CardHeader>
-            <CardContent className="h-full">
-              <div className="space-y-2">
-                {/* Filter and sort expenses */}
-                {filteredExpenses
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())  // Sort by date in descending order
-                  .slice(0, 5)  // Limit to the 5 most recent expenses
-                  .map(expense => (
-                    <div key={expense.id} className="flex justify-between items-center">
-                      <span>{expense.name} - {expense.category}: £{expense.amount.toFixed(2)} ({expense.date})</span>
-                      {expense.recurring && <span className="text-green-500">Recurring</span>}
-                      {expense.id && ( // Ensure id is defined before rendering the button
-                        <Button onClick={() => deleteExpense(expense.id)} className="bg-red-500 hover:bg-red-700">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                    <div>
+                      <Button onClick={() => handleEditExpense(expense)} className="bg-blue-500 hover:bg-blue-700 mr-2">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button onClick={() => deleteExpense(expense.id)} className="bg-red-500 hover:bg-red-700">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                  ))}
-                {/* Fallback if there are no expenses within the date range */}
-                {(filteredExpenses.length === 0) && <p>No recent expenses found within the selected date range.</p>}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-    </div>
-  );
+                  </div>
+                ))}
+              {filteredExpenses.length === 0 && <p>No recent expenses found within the selected date range.</p>}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </main>
+  </div>
+);
 };
 
 export default Expenses;
