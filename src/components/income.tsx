@@ -387,6 +387,10 @@ const IncomeDashboard: React.FC = () => {
     }
   };
   
+  const formatNumber = (value: number): string => {
+    return value.toLocaleString(); // Default formatting with commas for thousands
+  };
+
     return (
     <div className="flex h-screen w-screen bg-gray-100">
       <Sidebar page="Income" />
@@ -416,9 +420,32 @@ const IncomeDashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height={500}>
                 <LineChart data={groupedIncomeData}>
                   <XAxis dataKey="month" />
-                  <YAxis tickFormatter={(value) => `${value.toFixed(2)}`} />
+                  <YAxis
+                    tickFormatter={(value) => {
+                      if (value >= 1_000_000) {
+                        return `${(value / 1_000_000).toFixed(2)}M`;
+                      } else if (value >= 1_000) {
+                        return `${(value / 1_000).toFixed(2)}K`;
+                      } else {
+                        return value.toFixed(2);
+                      }
+                    }}
+                  />
                   <CartesianGrid strokeDasharray="3 3" />
-                  <Tooltip formatter={(value) => `${parseFloat(value as string).toFixed(2)}`} />
+                  <Tooltip
+                    formatter={(value) => {
+                      const numValue = parseFloat(value as string);
+
+                      if (numValue >= 1_000_000) {
+                        return `${(numValue / 1_000_000).toFixed(2)}M`;
+                      } else if (numValue >= 1_000) {
+                        return `${(numValue / 1_000).toFixed(2)}K`;
+                      } else {
+                        return numValue.toFixed(2);
+                      }
+                    }}
+                  />
+
                   <Line type="monotone" dataKey="amount" stroke="#3e9c35" activeDot={{ r: 8 }} />
                 </LineChart>
               </ResponsiveContainer>
@@ -568,7 +595,7 @@ const IncomeDashboard: React.FC = () => {
                       </span>
                     )}
                     <span className="font-medium">{income.date}</span>
-                    <span className="font-semibold">£ {income.amount.toFixed(2)}</span>
+                    <span className="font-semibold">£ {formatNumber(income.amount)}</span>
                     <span className="font-medium">
                       {bankAccounts.find(account => account.id === income.bankAccountId)?.name || 'Unknown Account'}
                     </span>

@@ -32,6 +32,9 @@ const Dashboard: React.FC = () => {
       return () => unsub();
     }
   }, [currentUser]);
+  const formatNumber = (value: number): string => {
+    return value.toLocaleString(); // Default formatting with commas for thousands
+  };
 
   const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,7 +97,7 @@ const Dashboard: React.FC = () => {
                 <div key={account.id} className="mb-4 p-4 bg-white rounded-lg shadow flex justify-between items-center">
                   <div>
                     <h3 className="text-xl font-semibold">{account.name}</h3>
-                    <p className="text-lg">Balance: £{account.balance.toFixed(2)}</p>
+                    <p className="text-lg">Balance: £{formatNumber(account.balance)}</p>
                   </div>
                   <Button
                     onClick={() => deleteBank(account.id)}
