@@ -23,7 +23,7 @@ import { Card, CardHeader, CardContent } from './ui/card';
 import { Input, Checkbox, Select } from './ui/form';
 import { Button } from './ui/button';
 import { useAuth } from '../contexts/AuthContext';
-import { db, doc, setDoc, onSnapshot } from '../firebase';
+import { db, doc, setDoc, onSnapshot, writeBatch } from '../firebase';
 import Sidebar from './ui/sidebar';
 import DashboardHeader from './ui/Dashboard_header';
 import { v4 as uuidv4 } from 'uuid';
@@ -37,6 +37,7 @@ interface IncomeEntry {
   frequency: 'monthly' | 'weekly';
   month: string;
   year: number;
+  bankAccountId: string;
 }
 
 interface GroupedIncomeData {
@@ -45,11 +46,18 @@ interface GroupedIncomeData {
   amount: number;
 }
 
+interface BankAccount {
+  id: string;
+  name: string;
+  balance: number;
+}
+
 const IncomeDashboard: React.FC = () => {
   const { currentUser } = useAuth();
   const [filterMonth, setFilterMonth] = useState<string>('');
   const [incomeData, setIncomeData] = useState<IncomeEntry[]>([]);
   const [groupedIncomeData, setGroupedIncomeData] = useState<GroupedIncomeData[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [newIncome, setNewIncome] = useState<IncomeEntry>({
     id: '',
     name: '',
@@ -59,12 +67,12 @@ const IncomeDashboard: React.FC = () => {
     frequency: 'monthly',
     month: format(new Date(), 'MMMM'),
     year: getYear(new Date()),
+    bankAccountId: '',
   });
   const [editMode, setEditMode] = useState<boolean>(false);
   const [editingIncome, setEditingIncome] = useState<IncomeEntry | null>(null);
   const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear());
 
-  // Compute sorted and filtered income data
   const sortedAndFilteredIncomeData = incomeData
     .filter((item) => item.year === filterYear)
     .filter((item) => filterMonth === '' || item.month === filterMonth)
@@ -76,11 +84,20 @@ const IncomeDashboard: React.FC = () => {
 
   useEffect(() => {
     if (currentUser) {
-      const userIncomeRef = doc(db, 'users', currentUser.uid);
-      const unsub = onSnapshot(userIncomeRef, (doc) => {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const unsub = onSnapshot(userRef, (doc) => {
         const data = doc.data();
-        if (data && data.income) {
-          setIncomeData(data.income);
+        if (data) {
+          if (data.income) {
+            setIncomeData(data.income);
+          }
+          if (data.bankAccounts) {
+            setBankAccounts(data.bankAccounts);
+            // If there's only one bank account, select it by default
+            if (data.bankAccounts.length === 1) {
+              setNewIncome(prev => ({ ...prev, bankAccountId: data.bankAccounts[0].id }));
+            }
+          }
         }
       });
 
@@ -126,6 +143,11 @@ const IncomeDashboard: React.FC = () => {
     e.preventDefault();
     if (!validateIncome(newIncome)) return;
 
+    let incomeToAdd = newIncome;
+    if (bankAccounts.length === 1 && !newIncome.bankAccountId) {
+      incomeToAdd = { ...newIncome, bankAccountId: bankAccounts[0].id };
+    }
+
     const parsedDate = parseISO(newIncome.date);
     const formattedMonth = format(parsedDate, 'MMMM');
     const formattedYear = getYear(parsedDate);
@@ -149,6 +171,7 @@ const IncomeDashboard: React.FC = () => {
           amount: parsedAmount,
           recurring: newIncome.recurring,
           frequency: newIncome.frequency,
+          bankAccountId: newIncome.bankAccountId,
         });
       });
     } else {
@@ -161,15 +184,31 @@ const IncomeDashboard: React.FC = () => {
         amount: parsedAmount,
         recurring: newIncome.recurring,
         frequency: newIncome.frequency,
+        bankAccountId: newIncome.bankAccountId,
       });
     }
 
     updatedIncomeData.sort(sortIncomeByDate);
-    setIncomeData(updatedIncomeData);
 
     if (currentUser) {
-      const userIncomeRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userIncomeRef, { income: updatedIncomeData }, { merge: true });
+      const userRef = doc(db, 'users', currentUser.uid);
+      const batch = writeBatch(db);
+
+      // Update income
+      batch.set(userRef, { income: updatedIncomeData }, { merge: true });
+
+      // Update bank account balance
+      const selectedAccount = bankAccounts.find(account => account.id === newIncome.bankAccountId);
+      if (selectedAccount) {
+        const updatedAccounts = bankAccounts.map(account =>
+          account.id === selectedAccount.id
+            ? { ...account, balance: account.balance + parsedAmount }
+            : account
+        );
+        batch.set(userRef, { bankAccounts: updatedAccounts }, { merge: true });
+      }
+
+      await batch.commit();
     }
 
     resetNewIncome();
@@ -214,6 +253,7 @@ const IncomeDashboard: React.FC = () => {
           amount: parsedAmount,
           recurring: newIncome.recurring,
           frequency: newIncome.frequency,
+          bankAccountId: newIncome.bankAccountId,
         });
       });
     } else {
@@ -226,15 +266,46 @@ const IncomeDashboard: React.FC = () => {
         amount: parsedAmount,
         recurring: newIncome.recurring,
         frequency: newIncome.frequency,
+        bankAccountId: newIncome.bankAccountId,
       });
     }
 
     updatedIncomeData.sort(sortIncomeByDate);
-    setIncomeData(updatedIncomeData);
 
     if (currentUser) {
-      const userIncomeRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userIncomeRef, { income: updatedIncomeData }, { merge: true });
+      const userRef = doc(db, 'users', currentUser.uid);
+      const batch = writeBatch(db);
+
+      // Update income
+      batch.set(userRef, { income: updatedIncomeData }, { merge: true });
+
+      // Update bank account balance
+      if (editingIncome) {
+        const oldAccount = bankAccounts.find(account => account.id === editingIncome.bankAccountId);
+        const newAccount = bankAccounts.find(account => account.id === newIncome.bankAccountId);
+
+        let updatedAccounts = [...bankAccounts];
+
+        if (oldAccount) {
+          updatedAccounts = updatedAccounts.map(account =>
+            account.id === oldAccount.id
+              ? { ...account, balance: account.balance - editingIncome.amount }
+              : account
+          );
+        }
+
+        if (newAccount) {
+          updatedAccounts = updatedAccounts.map(account =>
+            account.id === newAccount.id
+              ? { ...account, balance: account.balance + parsedAmount }
+              : account
+          );
+        }
+
+        batch.set(userRef, { bankAccounts: updatedAccounts }, { merge: true });
+      }
+
+      await batch.commit();
     }
 
     resetNewIncome();
@@ -242,20 +313,35 @@ const IncomeDashboard: React.FC = () => {
   };
 
   const handleDeleteIncome = async (income: IncomeEntry, e: MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation(); // Prevent the click from bubbling up
-  
+    e.stopPropagation();
+
     const updatedIncomeData = incomeData.filter((item) => item.id !== income.id);
-    setIncomeData(updatedIncomeData);
-  
+
     if (currentUser) {
-      const userIncomeRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userIncomeRef, { income: updatedIncomeData }, { merge: true });
+      const userRef = doc(db, 'users', currentUser.uid);
+      const batch = writeBatch(db);
+
+      // Update income
+      batch.set(userRef, { income: updatedIncomeData }, { merge: true });
+
+      // Update bank account balance
+      const account = bankAccounts.find(acc => acc.id === income.bankAccountId);
+      if (account) {
+        const updatedAccounts = bankAccounts.map(acc =>
+          acc.id === account.id
+            ? { ...acc, balance: acc.balance - income.amount }
+            : acc
+        );
+        batch.set(userRef, { bankAccounts: updatedAccounts }, { merge: true });
+      }
+
+      await batch.commit();
     }
   };
 
   const validateIncome = (income: IncomeEntry): boolean => {
-    if (!income.name || !income.amount || !income.date) {
-      alert('Please fill out all fields.');
+    if (!income.name || income.amount <= 0 || !income.date) {
+      alert('Please fill out all fields and ensure the amount is greater than zero.');
       return false;
     }
 
@@ -284,6 +370,7 @@ const IncomeDashboard: React.FC = () => {
       frequency: 'monthly',
       month: format(new Date(), 'MMMM'),
       year: getYear(new Date()),
+      bankAccountId: '',
     });
     setEditMode(false);
   };
@@ -379,6 +466,25 @@ const IncomeDashboard: React.FC = () => {
                     onChange={handleIncomeChange}
                     className="w-full border border-gray-300 rounded-md p-2"
                   />
+                  {bankAccounts.length > 1 && (
+                    <div className="form-group">
+                      <Select
+                        label="Bank Account"
+                        id="bankAccountId"
+                        name="bankAccountId"
+                        value={newIncome.bankAccountId}
+                        onChange={handleIncomeChange}
+                        className="w-full border border-gray-300 rounded-md p-2"
+                      >
+                        <option value="">Select a bank account</option>
+                        {bankAccounts.map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.name}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  )}
                 </div>
                 <div className="form-group flex items-center space-x-2">
                   <Checkbox
@@ -463,6 +569,9 @@ const IncomeDashboard: React.FC = () => {
                     )}
                     <span className="font-medium">{income.date}</span>
                     <span className="font-semibold">£ {income.amount.toFixed(2)}</span>
+                    <span className="font-medium">
+                      {bankAccounts.find(account => account.id === income.bankAccountId)?.name || 'Unknown Account'}
+                    </span>
                     <Button
                       onClick={(e) => {
                         handleDeleteIncome(income, e as React.MouseEvent<HTMLButtonElement>);

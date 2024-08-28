@@ -8,8 +8,10 @@ import {
   doc,
   setDoc,
   getDoc,
+  writeBatch,
   Firestore
 } from 'firebase/firestore';
+
 interface FirebaseConfig {
   apiKey: string;
   authDomain: string;
@@ -42,5 +44,6 @@ export {
   onSnapshot,
   doc,
   setDoc,
-  getDoc
+  getDoc,
+  writeBatch
 };

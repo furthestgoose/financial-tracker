@@ -40,12 +40,12 @@ const Sidebar = (props: { page: string; }) => {
           Expenses
         </a>
         <a
-          href="/one-time-expenses"
+          href="/goals"
           className={`nav-item block px-5 py-3 transition-colors duration-300 ${
-            props.page === "One Time Expenses" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
+            props.page === "Goals" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
           }`}
         >
-          One Time Expenses
+          Goals
         </a>
         <a
           href="/settings"

@@ -4,9 +4,10 @@ import Sidebar from './ui/sidebar';
 import DashboardHeader from './ui/Dashboard_header';
 import { Card, CardHeader, CardContent } from './ui/card';
 import { Button } from './ui/button';
+import { Select } from './ui/form';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
-import { db, doc, setDoc, onSnapshot } from '../firebase';
+import { db, doc, setDoc, onSnapshot, writeBatch } from '../firebase';
 import { v4 as uuidv4 } from 'uuid';
 
 type ExpenseCategory = 'Food' | 'Transportation' | 'Entertainment' | 'Clothing' | 'Insurance' | 'Personal' | 'Debt' | 'Utilities' | 'Housing' | 'Other';
@@ -16,10 +17,11 @@ interface Expense {
   id: string;
   name: string;
   amount: number;
-  category: ExpenseCategory;
+  category: string;
   date: string;
   recurring: RecurringFrequency;
-  endDate?: string;
+  endDate?: string; // Use `undefined` instead of `null`
+  bankAccountId: string;
 }
 
 interface HabitData {
@@ -32,9 +34,16 @@ interface CategoryData {
   amount: number;
 }
 
+interface BankAccount {
+  id: string;
+  name: string;
+  balance: number;
+}
+
 const categories: ExpenseCategory[] = ['Food', 'Transportation', 'Entertainment', 'Clothing', 'Insurance', 'Personal', 'Debt', 'Utilities', 'Housing', 'Other'];
 
 const Expenses: React.FC = () => {
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const { currentUser } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [newExpense, setNewExpense] = useState<{
@@ -44,13 +53,15 @@ const Expenses: React.FC = () => {
     date: string;
     recurring: RecurringFrequency;
     endDate: string;
+    bankAccountId: string;
   }>({
     name: '',
     amount: '',
     category: 'Other',
     date: new Date().toISOString().split('T')[0],
     recurring: 'none',
-    endDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0] // End of current year
+    endDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0],
+    bankAccountId: '',
   });
   const [habitData, setHabitData] = useState<HabitData[]>([]);
   const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
@@ -67,6 +78,13 @@ const Expenses: React.FC = () => {
         if (data && data.expenses) {
           setExpenses(data.expenses);
           updateChartData(data.expenses, dateRange.start, dateRange.end);
+          if (data.bankAccounts) {
+            setBankAccounts(data.bankAccounts);
+            // If there's only one bank account, select it by default
+            if (data.bankAccounts.length === 1) {
+              setNewExpense(prev => ({ ...prev, bankAccountId: data.bankAccounts[0].id }));
+            }
+          }
         }
       });
 
@@ -104,74 +122,122 @@ const Expenses: React.FC = () => {
     }
     return dates;
   };
-
   const addExpense = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (isNaN(parseFloat(newExpense.amount)) || parseFloat(newExpense.amount) <= 0) {
-      alert('Please enter a valid positive number for the amount');
-      return false;
+    // Validate input
+    if (!newExpense.name || !newExpense.amount || !newExpense.category || !newExpense.date || !newExpense.bankAccountId) {
+      alert('Please fill in all required fields');
+      return;
     }
 
-    if (newExpense.name && newExpense.amount && newExpense.category && newExpense.date) {
-      const baseExpense: Expense = {
-        id: uuidv4(),
-        name: newExpense.name,
-        amount: parseFloat(newExpense.amount),
-        category: newExpense.category,
-        date: newExpense.date,
-        recurring: newExpense.recurring,
-        endDate: newExpense.recurring !== 'none' ? newExpense.endDate : undefined
-      };
+    const expenseAmount = parseFloat(newExpense.amount);
+    if (isNaN(expenseAmount) || expenseAmount <= 0) {
+      alert('Please enter a valid positive number for the amount');
+      return;
+    }
 
-      let expensesToAdd: Expense[] = [baseExpense];
+    const baseExpense: Partial<Expense> = {
+      name: newExpense.name,
+      amount: expenseAmount,
+      category: newExpense.category,
+      date: newExpense.date,
+      recurring: newExpense.recurring,
+      bankAccountId: newExpense.bankAccountId,
+      endDate: newExpense.recurring !== 'none' ? newExpense.endDate : undefined,  // Use `undefined` if not recurring
+    };
 
-      if (newExpense.recurring !== 'none') {
-        const startDate = new Date(newExpense.date);
-        const endDate = new Date(newExpense.endDate);
-        let currentDate = new Date(startDate);
+    const expensesToAdd: Expense[] = [baseExpense as Expense];
 
-        while (currentDate <= endDate) {
-          if (currentDate > startDate) {
-            expensesToAdd.push({
-              ...baseExpense,
-              id: uuidv4(),
-              date: currentDate.toISOString().split('T')[0]
-            });
-          }
+    if (newExpense.recurring !== 'none') {
+      const startDate = new Date(newExpense.date);
+      const endDate = new Date(newExpense.endDate);
+      let currentDate = new Date(startDate);
 
-          if (newExpense.recurring === 'weekly') {
-            currentDate.setDate(currentDate.getDate() + 7);
-          } else if (newExpense.recurring === 'monthly') {
-            currentDate.setMonth(currentDate.getMonth() + 1);
-          }
+      while (currentDate <= endDate) {
+        if (currentDate > startDate) {
+          expensesToAdd.push({
+            ...baseExpense,
+            id: uuidv4(),
+            date: currentDate.toISOString().split('T')[0],
+          } as Expense);
+        }
+
+        if (newExpense.recurring === 'weekly') {
+          currentDate.setDate(currentDate.getDate() + 7);
+        } else if (newExpense.recurring === 'monthly') {
+          currentDate.setMonth(currentDate.getMonth() + 1);
         }
       }
-
-      const updatedExpenses = [...expenses, ...expensesToAdd];
-
-      if (currentUser) {
-        const userExpensesRef = doc(db, 'users', currentUser.uid);
-        await setDoc(userExpensesRef, { expenses: updatedExpenses }, { merge: true });
-      }
-
-      setNewExpense({
-        name: '',
-        amount: '',
-        category: 'Other',
-        date: new Date().toISOString().split('T')[0],
-        recurring: 'none',
-        endDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0]
-      });
     }
-  };
-
-  const deleteExpense = async (id: string) => {
-    const updatedExpenses = expenses.filter(expense => expense.id !== id);
 
     if (currentUser) {
-      const userExpensesRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userExpensesRef, { expenses: updatedExpenses }, { merge: true });
+      const userRef = doc(db, 'users', currentUser.uid);
+      const batch = writeBatch(db);
+
+      // Ensure endDate is either a string or `undefined`
+      const cleanExpense: Partial<Expense> = {
+        ...baseExpense,
+        endDate: baseExpense.endDate !== undefined ? baseExpense.endDate : undefined
+      };
+
+      batch.set(userRef, { expenses: [...expenses, ...expensesToAdd] }, { merge: true });
+
+      // Handle bank account update
+      const selectedAccount = bankAccounts.find(account => account.id === newExpense.bankAccountId);
+      if (selectedAccount) {
+        const updatedAccounts = bankAccounts.map(account =>
+          account.id === selectedAccount.id
+            ? { ...account, balance: account.balance - expenseAmount }
+            : account
+        );
+        batch.set(userRef, { bankAccounts: updatedAccounts }, { merge: true });
+      } else {
+        alert('Selected bank account not found');
+        return;
+      }
+
+      await batch.commit();
+    }
+
+    // Reset form
+    setNewExpense({
+      name: '',
+      amount: '',
+      category: 'Other',
+      date: new Date().toISOString().split('T')[0],
+      recurring: 'none',
+      endDate: 'none', // Ensure endDate is `undefined` when not used
+      bankAccountId: '',
+    });
+  };
+
+
+
+
+  const deleteExpense = async (id: string) => {
+    const expenseToDelete = expenses.find(expense => expense.id === id);
+    const updatedExpenses = expenses.filter(expense => expense.id !== id);
+
+    if (currentUser && expenseToDelete) {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const batch = writeBatch(db);
+
+      // Update expenses
+      batch.set(userRef, { expenses: updatedExpenses }, { merge: true });
+
+      // Update bank account balance
+      const account = bankAccounts.find(acc => acc.id === expenseToDelete.bankAccountId);
+      if (account) {
+        const updatedAccounts = bankAccounts.map(acc =>
+          acc.id === account.id
+            ? { ...acc, balance: acc.balance + expenseToDelete.amount }
+            : acc
+        );
+        batch.set(userRef, { bankAccounts: updatedAccounts }, { merge: true });
+      }
+
+      await batch.commit();
     }
   };
 
@@ -183,10 +249,9 @@ const Expenses: React.FC = () => {
     return acc;
   }, {});
 
-  const mostSpentDay = Object.entries(dailyExpenses).reduce((max, [date, amount]) => (amount > max.amount ? { date, amount } : max), { date: '', amount: 0 });
-  const highestExpense = filteredExpenses.reduce((max, expense) => (expense.amount > max.amount ? expense : max), { id: '', name: '', amount: 0, category: 'Other', date: '', recurring: 'none' });
-
-  const averageDailySpending = (totalExpenses / Object.keys(dailyExpenses).length).toFixed(2);
+  const mostSpentDay = Object.keys(dailyExpenses).reduce((max, date) => dailyExpenses[date] > max.amount ? { date, amount: dailyExpenses[date] } : max, { date: '', amount: 0 });
+  const highestExpense = filteredExpenses.reduce((max, expense) => expense.amount > max.amount ? expense : max, { id: '', name: '', amount: 0, category: 'Other', date: '', recurring: 'none', bankAccountId: '' });
+  const averageDailySpending = (filteredExpenses.length > 0 ? totalExpenses / Object.keys(dailyExpenses).length : 0).toFixed(2);
 
   return (
     <div className="flex h-screen w-screen bg-gray-100">
@@ -273,6 +338,18 @@ const Expenses: React.FC = () => {
                     className="w-full p-2 border rounded"
                   />
                 )}
+                <select
+                  value={newExpense.bankAccountId}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewExpense({ ...newExpense, bankAccountId: e.target.value })}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="">Select Bank Account</option>
+                  {bankAccounts.map(account => (
+                    <option key={account.id} value={account.id}>
+                      {account.name} (Balance: £{account.balance.toFixed(2)})
+                    </option>
+                  ))}
+                </select>
                 <Button type="submit" className="w-full flex items-center justify-center bg-green-600 hover:bg-green-700 focus:outline-none">
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
                 </Button>
@@ -331,9 +408,11 @@ const Expenses: React.FC = () => {
                     <div key={expense.id} className="flex justify-between items-center">
                       <span>{expense.name} - {expense.category}: £{expense.amount.toFixed(2)} ({expense.date})</span>
                       {expense.recurring && <span className="text-green-500">Recurring</span>}
-                      <Button onClick={() => deleteExpense(expense.id)} className="bg-red-500 hover:bg-red-700">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {expense.id && ( // Ensure id is defined before rendering the button
+                        <Button onClick={() => deleteExpense(expense.id)} className="bg-red-500 hover:bg-red-700">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   ))}
                 {/* Fallback if there are no expenses within the date range */}

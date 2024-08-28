@@ -103,6 +103,10 @@ const InvestmentsDashboard: React.FC = () => {
     }
   }, [investments]);
 
+  const formatGBP = (value: number) => {
+    return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
+  };
+
   const handleInvestmentChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setNewInvestment(prev => ({
@@ -248,7 +252,7 @@ const InvestmentsDashboard: React.FC = () => {
       <Sidebar page="Investments" />
       <main className="flex flex-col flex-1 p-6 overflow-auto">
         <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-          <DashboardHeader Page_Name="Stock Investments" />
+          <DashboardHeader Page_Name="Stock Investments (GBP)" />
         </div>
 
         <div className="content-body grid grid-cols-2 gap-6">
@@ -260,15 +264,15 @@ const InvestmentsDashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={chartData}>
                   <XAxis dataKey="date" tickFormatter={(date) => format(parseISO(date), 'MM/dd')} />
-                  <YAxis />
+                  <YAxis tickFormatter={(value) => `£${value.toFixed(0)}`} />
                   <CartesianGrid strokeDasharray="3 3" />
-                  <Tooltip />
+                  <Tooltip formatter={(value) => [formatGBP(value as number), 'Portfolio Value']} />
                   <Line type="monotone" dataKey="cumulativeValue" stroke="#8884d8" />
                 </LineChart>
               </ResponsiveContainer>
               <div className="mt-4">
                 <h4 className="text-lg font-semibold">Total Portfolio Value</h4>
-                <p className="text-2xl font-bold">${calculatePortfolioValue().toFixed(2)}</p>
+                <p className="text-2xl font-bold">{formatGBP(calculatePortfolioValue())}</p>
               </div>
               {loading && <p>Updating prices...</p>}
               {error && <p className="text-red-500">{error}</p>}
@@ -301,13 +305,13 @@ const InvestmentsDashboard: React.FC = () => {
                   placeholder="Number of shares"
                 />
                 <Input
-                  label="Price"
+                  label="Price per share(GBP)"
                   type="number"
                   id="price"
                   name="price"
                   value={newInvestment.price}
                   onChange={handleInvestmentChange}
-                  placeholder="Price per share"
+                  placeholder="Price per share in GBP"
                 />
                 <Input
                   label="Date"
@@ -344,12 +348,12 @@ const InvestmentsDashboard: React.FC = () => {
                   <li key={investment.id} className="py-4 flex justify-between items-center">
                     <div>
                       <p className="font-semibold">{investment.symbol}</p>
-                      <p>{investment.action === 'buy' ? 'Bought' : 'Sold'} {investment.amount} @ ${investment.price}</p>
+                      <p>{investment.action === 'buy' ? 'Bought' : 'Sold'} {investment.amount} @ {formatGBP(investment.price)}</p>
                       <p className="text-sm text-gray-500">{investment.date}</p>
                     </div>
                     <div>
                       <p className="font-bold">
-                        Current: ${priceData.find(p => p.symbol === investment.symbol)?.price.toFixed(2) || 'Loading...'}
+                        Current: {formatGBP(priceData.find(p => p.symbol === investment.symbol)?.price || 0)}
                       </p>
                       <Button onClick={() => handleEditInvestment(investment)} className="mr-2">
                         Edit
