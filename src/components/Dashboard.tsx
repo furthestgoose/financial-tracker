@@ -5,7 +5,7 @@ import { Card, CardHeader, CardContent } from './ui/card';
 import { Input } from './ui/form';
 import { Button } from './ui/button';
 import { useAuth } from '../contexts/AuthContext';
-import { db, doc, setDoc, onSnapshot } from '../firebase';
+import { db, doc, setDoc, onSnapshot, writeBatch } from '../firebase';
 import { v4 as uuidv4 } from 'uuid';
 
 interface BankAccount {
@@ -62,6 +62,21 @@ const Dashboard: React.FC = () => {
     setNewAccount({ name: '', balance: '' });
   };
 
+  const deleteBank = async (id: string) => {
+    const updatedBankAccounts = bankAccounts.filter(account => account.id !== id);
+
+    if (currentUser) {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const batch = writeBatch(db);
+
+      // Update bank accounts
+      batch.set(userRef, { bankAccounts: updatedBankAccounts }, { merge: true });
+
+      await batch.commit();
+      setBankAccounts(updatedBankAccounts); // Update local state
+    }
+  };
+
   return (
     <div className="flex h-screen w-screen bg-gray-100">
       <Sidebar page="Home" />
@@ -76,9 +91,17 @@ const Dashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               {bankAccounts.map((account) => (
-                <div key={account.id} className="mb-4 p-4 bg-white rounded-lg shadow">
-                  <h3 className="text-xl font-semibold">{account.name}</h3>
-                  <p className="text-lg">Balance: £{account.balance.toFixed(2)}</p>
+                <div key={account.id} className="mb-4 p-4 bg-white rounded-lg shadow flex justify-between items-center">
+                  <div>
+                    <h3 className="text-xl font-semibold">{account.name}</h3>
+                    <p className="text-lg">Balance: £{account.balance.toFixed(2)}</p>
+                  </div>
+                  <Button
+                    onClick={() => deleteBank(account.id)}
+                    className="ml-4 bg-red-600 text-white hover:bg-red-700"
+                  >
+                    Delete
+                  </Button>
                 </div>
               ))}
             </CardContent>
