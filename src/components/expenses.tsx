@@ -142,6 +142,7 @@ const Expenses: React.FC = () => {
     return true;
   };
 
+
   const addOrUpdateExpense = async (e: FormEvent) => {
     e.preventDefault();
     if (!validateExpense(newExpense)) return;
@@ -182,11 +183,32 @@ const Expenses: React.FC = () => {
         return;
       }
 
+      // Add recurring expenses if needed
+      if (expenseToAdd.recurring !== 'none' && expenseToAdd.endDate) {
+        const frequencyInDays = expenseToAdd.recurring === 'weekly' ? 7 : 30;
+        let currentDate = new Date(expenseToAdd.date);
+        const endDate = new Date(expenseToAdd.endDate); // Use the specified end date
+
+        while (currentDate <= endDate) {
+          if (currentDate > new Date(expenseToAdd.date)) { // Skip the initial expense date
+            const recurringExpense = {
+              ...expenseToAdd,
+              id: uuidv4(),
+              date: currentDate.toISOString().split('T')[0]
+            };
+            updatedExpenses.push(recurringExpense);
+          }
+          currentDate.setDate(currentDate.getDate() + frequencyInDays);
+        }
+      }
+
+      batch.set(userRef, { expenses: updatedExpenses }, { merge: true });
       await batch.commit();
     }
 
     resetForm();
   };
+
 
   const handleEditExpense = (expense: Expense) => {
     setNewExpense(expense);
@@ -218,6 +240,17 @@ const Expenses: React.FC = () => {
       await batch.commit();
     }
   };
+
+  const M_KFormat = (value: number): string => {
+    if (value >= 1_000_000) {
+      return `£${(value / 1_000_000).toFixed(1)}M`; // Format as millions with 1 decimal place
+    } else if (value >= 1_000) {
+      return `£${(value / 1_000).toFixed(1)}K`; // Format as thousands with 1 decimal place
+    } else {
+      return `£${value.toFixed(0)}`; // Format as a regular number
+    }
+  };
+
 
   const resetForm = () => {
     setNewExpense({
@@ -358,9 +391,9 @@ const Expenses: React.FC = () => {
                 <BarChart data={categoryData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
-                  <YAxis tickFormatter={(value) => formatNumber(value)} />
+                  <YAxis tickFormatter={M_KFormat} />
                   <Tooltip
-                    formatter={(value: any) => `£ ${formatNumber(Number(value))}`}
+                    formatter={(value: any) => ` ${formatNumber(Number(value))}`}
                   />
                   <Bar dataKey="amount" fill="#8884d8" />
                 </BarChart>
@@ -389,7 +422,7 @@ const Expenses: React.FC = () => {
           <Card className="col-span-1 md:col-span-2">
             <CardHeader>Recent Expenses</CardHeader>
             <CardContent className="h-full">
-              <div className="space-y-2">
+              <div className="space-y-2 overflow-auto">
                 {filteredExpenses
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                   .slice(0, 5)

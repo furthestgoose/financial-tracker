@@ -8,7 +8,7 @@ import Income from './components/income';
 import Expenses from './components/expenses';
 import Investments from './components/Investments';
 import ProtectedRoute from './components/ProtectedRoute';
-import Settings from './components/Settings';
+import Bank_Accounts from "./components/Bank_Accounts";
 import HomePage from './components/HomePage';
 import NotFoundPage from './components/404Page';
 import goals from "./components/Goals";
@@ -26,7 +26,7 @@ const App: React.FC = () => {
           <Route path="/expenses" element={<ProtectedRoute component={Expenses} />} />
           <Route path="/goals" element={<ProtectedRoute component={goals} />} />
           <Route path="/investments" element={<ProtectedRoute component={Investments} />} />
-          <Route path="/settings" element={<ProtectedRoute component={Settings} />} />
+          <Route path="/bank-accounts" element={<ProtectedRoute component={Bank_Accounts} />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </AuthProvider>

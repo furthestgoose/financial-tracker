@@ -14,7 +14,7 @@ import { Card, CardHeader, CardContent } from './ui/card';
 import { Input, Select } from './ui/form';
 import { Button } from './ui/button';
 import { useAuth } from '../contexts/AuthContext';
-import { db, doc, setDoc, onSnapshot } from '../firebase';
+import { db, doc, onSnapshot, writeBatch } from '../firebase';
 import Sidebar from './ui/sidebar';
 import DashboardHeader from './ui/Dashboard_header';
 import { v4 as uuidv4 } from 'uuid';
@@ -28,6 +28,7 @@ interface Investment {
   price: number;
   date: string;
   action: 'buy' | 'sell';
+  accountId: string;
 }
 
 interface PriceData {
@@ -35,9 +36,16 @@ interface PriceData {
   price: number;
 }
 
+interface BankAccount {
+  id: string;
+  name: string;
+  balance: number;
+}
+
 const InvestmentsDashboard: React.FC = () => {
   const { currentUser } = useAuth();
   const [investments, setInvestments] = useState<Investment[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [newInvestment, setNewInvestment] = useState<Investment>({
     id: '',
     symbol: '',
@@ -45,6 +53,7 @@ const InvestmentsDashboard: React.FC = () => {
     price: 0,
     date: new Date().toISOString().slice(0, 10),
     action: 'buy',
+    accountId: '',
   });
   const [editMode, setEditMode] = useState<boolean>(false);
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
@@ -55,11 +64,16 @@ const InvestmentsDashboard: React.FC = () => {
 
   useEffect(() => {
     if (currentUser) {
-      const userInvestmentsRef = doc(db, 'users', currentUser.uid);
-      const unsub = onSnapshot(userInvestmentsRef, (doc) => {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const unsub = onSnapshot(userRef, (doc) => {
         const data = doc.data();
-        if (data && data.investments) {
-          setInvestments(data.investments);
+        if (data) {
+          if (data.investments) {
+            setInvestments(data.investments);
+          }
+          if (data.bankAccounts) {
+            setBankAccounts(data.bankAccounts);
+          }
         }
       });
 
@@ -103,7 +117,10 @@ const InvestmentsDashboard: React.FC = () => {
     }
   }, [investments]);
 
-  const formatGBP = (value: number) => {
+
+
+
+    const formatGBP = (value: number) => {
     return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
   };
 
@@ -140,20 +157,54 @@ const InvestmentsDashboard: React.FC = () => {
       return;
     }
 
+    const totalCost = newInvestment.amount * newInvestment.price;
+    const selectedAccount = bankAccounts.find(acc => acc.id === newInvestment.accountId);
+
+    if (!selectedAccount) {
+      setError('Please select a valid bank account.');
+      return;
+    }
+
+    if (newInvestment.action === 'buy' && selectedAccount.balance < totalCost) {
+      setError('Insufficient funds in the selected account.');
+      return;
+    }
+
     const investmentToAdd = {
       ...newInvestment,
       id: uuidv4(),
     };
 
     const updatedInvestments = [...investments, investmentToAdd];
-    setInvestments(updatedInvestments);
+    const updatedAccounts = bankAccounts.map(acc => {
+      if (acc.id === selectedAccount.id) {
+        return {
+          ...acc,
+          balance: newInvestment.action === 'buy'
+            ? acc.balance - totalCost
+            : acc.balance + totalCost
+        };
+      }
+      return acc;
+    });
 
     if (currentUser) {
-      const userInvestmentsRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userInvestmentsRef, { investments: updatedInvestments }, { merge: true });
-    }
+      const userRef = doc(db, 'users', currentUser.uid);
+      const batch = writeBatch(db);
 
-    resetNewInvestment();
+      batch.set(userRef, { investments: updatedInvestments }, { merge: true });
+      batch.set(userRef, { bankAccounts: updatedAccounts }, { merge: true });
+
+      try {
+        await batch.commit();
+        setInvestments(updatedInvestments);
+        setBankAccounts(updatedAccounts);
+        resetNewInvestment();
+      } catch (err) {
+        console.error('Error updating data:', err);
+        setError('Failed to update investment and account data.');
+      }
+    }
   };
 
   const handleEditInvestment = (investment: Investment) => {
@@ -172,33 +223,104 @@ const InvestmentsDashboard: React.FC = () => {
       return;
     }
 
-    const updatedInvestments = investments.map(inv =>
-      inv.id === editingInvestment?.id ? newInvestment : inv
-    );
-
-    setInvestments(updatedInvestments);
-
-    if (currentUser) {
-      const userInvestmentsRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userInvestmentsRef, { investments: updatedInvestments }, { merge: true });
+    if (!editingInvestment) {
+      setError('No investment selected for editing.');
+      return;
     }
 
-    resetNewInvestment();
-    setEditingInvestment(null);
+    const oldTotalCost = editingInvestment.amount * editingInvestment.price;
+    const newTotalCost = newInvestment.amount * newInvestment.price;
+    const costDifference = newTotalCost - oldTotalCost;
+
+    const selectedAccount = bankAccounts.find(acc => acc.id === newInvestment.accountId);
+    if (!selectedAccount) {
+      setError('Please select a valid bank account.');
+      return;
+    }
+
+    if (newInvestment.action === 'buy' && selectedAccount.balance < costDifference) {
+      setError('Insufficient funds in the selected account for this update.');
+      return;
+    }
+
+    const updatedInvestments = investments.map(inv =>
+      inv.id === editingInvestment.id ? newInvestment : inv
+    );
+
+    const updatedAccounts = bankAccounts.map(acc => {
+      if (acc.id === selectedAccount.id) {
+        return {
+          ...acc,
+          balance: newInvestment.action === 'buy'
+            ? acc.balance - costDifference
+            : acc.balance + costDifference
+        };
+      }
+      return acc;
+    });
+
+    if (currentUser) {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const batch = writeBatch(db);
+
+      batch.set(userRef, { investments: updatedInvestments }, { merge: true });
+      batch.set(userRef, { bankAccounts: updatedAccounts }, { merge: true });
+
+      try {
+        await batch.commit();
+        setInvestments(updatedInvestments);
+        setBankAccounts(updatedAccounts);
+        resetNewInvestment();
+        setEditingInvestment(null);
+      } catch (err) {
+        console.error('Error updating data:', err);
+        setError('Failed to update investment and account data.');
+      }
+    }
   };
 
   const handleDeleteInvestment = async (investment: Investment) => {
+    const totalCost = investment.amount * investment.price;
+    const selectedAccount = bankAccounts.find(acc => acc.id === investment.accountId);
+
+    if (!selectedAccount) {
+      setError('Associated bank account not found.');
+      return;
+    }
+
     const updatedInvestments = investments.filter(inv => inv.id !== investment.id);
-    setInvestments(updatedInvestments);
+    const updatedAccounts = bankAccounts.map(acc => {
+      if (acc.id === selectedAccount.id) {
+        return {
+          ...acc,
+          balance: investment.action === 'buy'
+            ? acc.balance + totalCost
+            : acc.balance - totalCost
+        };
+      }
+      return acc;
+    });
 
     if (currentUser) {
-      const userInvestmentsRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userInvestmentsRef, { investments: updatedInvestments }, { merge: true });
+      const userRef = doc(db, 'users', currentUser.uid);
+      const batch = writeBatch(db);
+
+      batch.set(userRef, { investments: updatedInvestments }, { merge: true });
+      batch.set(userRef, { bankAccounts: updatedAccounts }, { merge: true });
+
+      try {
+        await batch.commit();
+        setInvestments(updatedInvestments);
+        setBankAccounts(updatedAccounts);
+      } catch (err) {
+        console.error('Error deleting investment:', err);
+        setError('Failed to delete investment and update account data.');
+      }
     }
   };
 
   const validateInvestment = (investment: Investment): boolean => {
-    if (!investment.symbol || !investment.amount || !investment.price || !investment.date) {
+    if (!investment.symbol || !investment.amount || !investment.price || !investment.date || !investment.accountId) {
       alert('Please fill out all fields.');
       return false;
     }
@@ -219,9 +341,11 @@ const InvestmentsDashboard: React.FC = () => {
       price: 0,
       date: new Date().toISOString().slice(0, 10),
       action: 'buy',
+      accountId: '',
     });
     setEditMode(false);
     setSymbolError(null);
+    setError(null);
   };
 
   const calculatePortfolioValue = () => {
@@ -264,7 +388,7 @@ const InvestmentsDashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={chartData}>
                   <XAxis dataKey="date" tickFormatter={(date) => format(parseISO(date), 'MM/dd')} />
-                  <YAxis tickFormatter={(value) => `£${value.toFixed(0)}`} />
+                  <YAxis tickFormatter={(value) => `${value.toFixed(0)}`} />
                   <CartesianGrid strokeDasharray="3 3" />
                   <Tooltip formatter={(value) => [formatGBP(value as number), 'Portfolio Value']} />
                   <Line type="monotone" dataKey="cumulativeValue" stroke="#8884d8" />
@@ -331,10 +455,25 @@ const InvestmentsDashboard: React.FC = () => {
                   <option value="buy">Buy</option>
                   <option value="sell">Sell</option>
                 </Select>
+                <Select
+                  label="Bank Account"
+                  id="accountId"
+                  name="accountId"
+                  value={newInvestment.accountId}
+                  onChange={handleInvestmentChange}
+                >
+                  <option value="">Select Bank Account</option>
+                  {bankAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name} (Balance: {formatGBP(account.balance)})
+                    </option>
+                  ))}
+                </Select>
                 <Button type="submit" className="bg-green-600 hover:bg-green-700">
                   {editMode ? 'Update Investment' : 'Add Investment'}
                 </Button>
               </form>
+              {error && <p className="text-red-500 mt-2">{error}</p>}
             </CardContent>
           </Card>
 
@@ -349,6 +488,7 @@ const InvestmentsDashboard: React.FC = () => {
                     <div>
                       <p className="font-semibold">{investment.symbol}</p>
                       <p>{investment.action === 'buy' ? 'Bought' : 'Sold'} {investment.amount} @ {formatGBP(investment.price)}</p>
+                      <p className="text-sm text-gray-500">Account: {bankAccounts.find(acc => acc.id === investment.accountId)?.name}</p>
                       <p className="text-sm text-gray-500">{investment.date}</p>
                     </div>
                     <div>

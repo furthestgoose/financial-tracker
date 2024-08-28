@@ -13,31 +13,15 @@ const Sidebar = (props: { page: string; }) => {
             props.page === "Home" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
           }`}
         >
-          Home
+          Overview
         </a>
         <a
-          href="/income"
+          href="/bank-accounts"
           className={`nav-item block px-5 py-3 transition-colors duration-300 ${
-            props.page === "Income" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
+            props.page === "Bank_Accounts" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
           }`}
         >
-          Income
-        </a>
-        <a
-          href="/investments"
-          className={`nav-item block px-5 py-3 transition-colors duration-300 ${
-            props.page === "Investments" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
-          }`}
-        >
-          Investments
-        </a>
-        <a
-          href="/expenses"
-          className={`nav-item block px-5 py-3 transition-colors duration-300 ${
-            props.page === "Expenses" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
-          }`}
-        >
-          Expenses
+          Bank Accounts
         </a>
         <a
           href="/goals"
@@ -48,13 +32,31 @@ const Sidebar = (props: { page: string; }) => {
           Goals
         </a>
         <a
-          href="/settings"
+          href="/income"
           className={`nav-item block px-5 py-3 transition-colors duration-300 ${
-            props.page === "Settings" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
+            props.page === "Income" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
           }`}
         >
-          Settings
+          Income
         </a>
+        <a
+          href="/expenses"
+          className={`nav-item block px-5 py-3 transition-colors duration-300 ${
+            props.page === "Expenses" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
+          }`}
+        >
+          Expenses
+        </a>
+        <a
+          href="/investments"
+          className={`nav-item block px-5 py-3 transition-colors duration-300 ${
+            props.page === "Investments" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
+          }`}
+        >
+          Investments
+        </a>
+
+
       </nav>
     </aside>
   );
