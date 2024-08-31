@@ -1,4 +1,6 @@
 
+Welcome to the Financial Tracker! This is a React-based application designed to help users manage their finances. With features for account creation and login via Firebase, this app provides a robust solution for financial tracking.
+
 ## Features
 
 - **Account Creation**: Users can create an account and securely log in using Firebase Authentication.
@@ -80,8 +82,4 @@ If you’d like to contribute to the project, please follow these guidelines:
 5. Open a pull request describing your changes.
 
 ### Licence
-<<<<<<< HEAD
-This project is licensed under the
-=======
 This project is licensed under the [Creative Commons Licence](https://github.com/furthestgoose/financial-tracker/blob/master/LICENSE)
->>>>>>> 9f5d010 (ReadME fixed)
