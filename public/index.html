@@ -1,43 +1,141 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" id="oranda" class="dark axo">
   <head>
+    <title>FinancePro</title>
+    
+      <meta property="og:url" content="https://furthestgoose.github.io/financial-tracker" />
+    
+    
+      <link rel="icon" href="/favicon.ico" />
+    
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Web site created using create-react-app"
-    />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
-
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
-    <title>React App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="FinancePro" />
+    
+    
+    
+    <meta http-equiv="Permissions-Policy" content="interest-cohort=()" />
+    <link rel="stylesheet" href="/oranda-v0.6.1.css" />
+    
+    
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
+    <div class="container">
+      <div class="page-body">
+        
+          <div class="repo_banner">
+            <a href="https://github.com/furthestgoose/financial-tracker">
+              <div class="github-icon" aria-hidden="true"></div>
+              Check out our GitHub!
+            </a>
+          </div>
+        
 
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
+        <main>
+          <header>
+            
+            <h1 class="title">FinancePro</h1>
+            
+          </header>
 
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
+          
+
+
+    <p>Welcome to the FinancePro! This is a React-based application designed to help users manage their finances. With features for account creation and login via Firebase, this app provides a robust solution for financial tracking.</p>
+<h2>Features</h2>
+<ul>
+<li><strong>Account Creation</strong>: Users can create an account and securely log in using Firebase Authentication.</li>
+<li><strong>Financial Management</strong>: Track expenses, income, and other financial metrics.</li>
+</ul>
+<h2>Screenshots</h2>
+<h2>Getting Started</h2>
+<h3>Prerequisites</h3>
+<p>To run this project locally, you need the following installed on your machine:</p>
+<ul>
+<li><a href="https://nodejs.org/" rel="noopener noreferrer">Node.js</a> (includes npm)</li>
+<li><a href="https://firebase.google.com/docs/cli" rel="noopener noreferrer">Firebase CLI</a> (for Firebase services)</li>
+</ul>
+<h3>Clone the Repository</h3>
+<p>First, clone the repository to your local machine:</p>
+<pre style="background-color:#263238;"><span style="color:#82aaff;">git clone https://github.com/yourusername/financial-tracker.git
+</span><span style="color:#82aaff;">cd financial-tracker
+</span></pre>
+
+<h3>Install Dependencies</h3>
+<pre style="background-color:#263238;"><span style="color:#82aaff;">npm install
+</span></pre>
+
+<p>or</p>
+<pre style="background-color:#263238;"><span style="color:#82aaff;">yarn install
+</span></pre>
+
+<h3>Configure Firebase</h3>
+<p>To use Firebase Authentication, you need to set up Firebase in your project:</p>
+<ol>
+<li>Go to the <a href="https://console.firebase.google.com/" rel="noopener noreferrer">Firebase Console</a></li>
+<li>Create a new firebase project or use an existing one</li>
+<li>Register your app with Firebase and get your Firebase configuration details (API key, project ID, etc.).</li>
+<li>Create a .env file in the root of your project and add the following environment variables with your Firebase credentials:</li>
+</ol>
+<pre style="background-color:#263238;"><span style="color:#eeffff;">REACT_APP_FIREBASE_API_KEY=your-api-key
+</span><span style="color:#eeffff;">REACT_APP_FIREBASE_AUTH_DOMAIN=your-auth-domain
+</span><span style="color:#eeffff;">REACT_APP_FIREBASE_PROJECT_ID=your-project-id
+</span><span style="color:#eeffff;">REACT_APP_FIREBASE_STORAGE_BUCKET=your-storage-bucket
+</span><span style="color:#eeffff;">REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your-messaging-sender-id
+</span><span style="color:#eeffff;">REACT_APP_FIREBASE_APP_ID=your-app-id
+</span></pre>
+
+<ol start="5">
+<li>get a FINNHUB API key at <a href="https://finnhub.io/" rel="noopener noreferrer">Finhub</a></li>
+<li>Add to the .env file:</li>
+</ol>
+<pre style="background-color:#263238;"><span style="color:#eeffff;">REACT_APP_INVESTMENTS_KEY=your-api-key
+</span></pre>
+
+<h3>Run the Development Server</h3>
+<p>Start the development server to see the application in action:</p>
+<pre style="background-color:#263238;"><span style="color:#82aaff;">npm start
+</span></pre>
+
+<p>or</p>
+<pre style="background-color:#263238;"><span style="color:#82aaff;">yarn start
+</span></pre>
+
+<p>Open your browser and navigate to <a href="http://localhost:3000" rel="noopener noreferrer">http://localhost:3000</a> to view the application.</p>
+<h3>Contributing</h3>
+<p>If you’d like to contribute to the project, please follow these guidelines:</p>
+<ol>
+<li>Fork the repository.</li>
+<li>Create a new branch for your feature or fix.</li>
+<li>Make your changes and commit them with descriptive messages.</li>
+<li>Push your branch to GitHub.</li>
+<li>Open a pull request describing your changes.</li>
+</ol>
+<h3>Licence</h3>
+<p>This project is licensed under the</p>
+
+
+
+        </main>
+      </div>
+
+      <footer>
+        
+          <a href="https://github.com/furthestgoose/financial-tracker"><div class="github-icon" aria-hidden="true"></div></a>
+        
+        <span>
+          FinancePro
+        </span>
+      </footer>
+    </div>
+
+    
+    
+
+    
+
+
   </body>
 </html>
