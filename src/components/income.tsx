@@ -11,10 +11,8 @@ import {
 import {
   format,
   parseISO,
-  parse,
   isValid,
   getYear,
-  compareDesc,
   endOfYear,
   eachMonthOfInterval,
   eachWeekOfInterval,
@@ -23,7 +21,7 @@ import { Card, CardHeader, CardContent } from './ui/card';
 import { Input, Checkbox, Select } from './ui/form';
 import { Button } from './ui/button';
 import { useAuth } from '../contexts/AuthContext';
-import { db, doc, setDoc, onSnapshot, writeBatch } from '../firebase';
+import { db, doc, onSnapshot, writeBatch } from '../firebase';
 import Sidebar from './ui/sidebar';
 import DashboardHeader from './ui/Dashboard_header';
 import { v4 as uuidv4 } from 'uuid';
@@ -62,7 +60,7 @@ const IncomeDashboard: React.FC = () => {
     id: '',
     name: '',
     amount: 0,
-    date: new Date().toISOString().slice(0, 10),
+    date: new Date().toISOString().split('T')[0],
     recurring: false,
     frequency: 'monthly',
     month: format(new Date(), 'MMMM'),
@@ -73,16 +71,8 @@ const IncomeDashboard: React.FC = () => {
   const [editingIncome, setEditingIncome] = useState<IncomeEntry | null>(null);
   const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear());
 
-  const sortedAndFilteredIncomeData = incomeData
-    .filter((item) => item.year === filterYear)
-    .filter((item) => filterMonth === '' || item.month === filterMonth)
-    .sort((a, b) => {
-      const dateA = parse(a.date, 'dd/MM/yyyy', new Date());
-      const dateB = parse(b.date, 'dd/MM/yyyy', new Date());
-      return compareDesc(dateA, dateB);
-    });
-
   useEffect(() => {
+    document.title = "FinancePro | Log Income"
     if (currentUser) {
       const userRef = doc(db, 'users', currentUser.uid);
       const unsub = onSnapshot(userRef, (doc) => {
@@ -143,15 +133,10 @@ const IncomeDashboard: React.FC = () => {
     e.preventDefault();
     if (!validateIncome(newIncome)) return;
 
-    let incomeToAdd = newIncome;
-    if (bankAccounts.length === 1 && !newIncome.bankAccountId) {
-      incomeToAdd = { ...newIncome, bankAccountId: bankAccounts[0].id };
-    }
-
     const parsedDate = parseISO(newIncome.date);
     const formattedMonth = format(parsedDate, 'MMMM');
     const formattedYear = getYear(parsedDate);
-    const formattedDate = format(parsedDate, 'dd/MM/yyyy');
+    const formattedDate = format(parsedDate, 'yyyy-MM-dd');
     const parsedAmount = parseFloat(newIncome.amount.toString());
     let updatedIncomeData = [...incomeData];
 
@@ -167,7 +152,7 @@ const IncomeDashboard: React.FC = () => {
           name: newIncome.name,
           year: getYear(date),
           month: format(date, 'MMMM'),
-          date: format(date, 'dd/MM/yyyy'),
+          date: date.toISOString().split('T')[0],
           amount: parsedAmount,
           recurring: newIncome.recurring,
           frequency: newIncome.frequency,
@@ -194,10 +179,8 @@ const IncomeDashboard: React.FC = () => {
       const userRef = doc(db, 'users', currentUser.uid);
       const batch = writeBatch(db);
 
-      // Update income
       batch.set(userRef, { income: updatedIncomeData }, { merge: true });
 
-      // Update bank account balance
       const selectedAccount = bankAccounts.find(account => account.id === newIncome.bankAccountId);
       if (selectedAccount) {
         const updatedAccounts = bankAccounts.map(account =>
@@ -215,12 +198,9 @@ const IncomeDashboard: React.FC = () => {
   };
 
   const handleEditIncome = (income: IncomeEntry) => {
-    const parsedDate = parse(income.date, 'dd/MM/yyyy', new Date());
-    const formattedDate = format(parsedDate, 'yyyy-MM-dd');
-
     setNewIncome({
       ...income,
-      date: formattedDate,
+      date: income.date,
     });
     setEditingIncome(income);
     setEditMode(true);
@@ -233,7 +213,7 @@ const IncomeDashboard: React.FC = () => {
     const parsedDate = parseISO(newIncome.date);
     const formattedMonth = format(parsedDate, 'MMMM');
     const formattedYear = getYear(parsedDate);
-    const formattedDate = format(parsedDate, 'dd/MM/yyyy');
+    const formattedDate = format(parsedDate, 'yyyy-MM-dd');
     const parsedAmount = parseFloat(newIncome.amount.toString());
     let updatedIncomeData = incomeData.filter((item) => item.id !== editingIncome?.id);
 
@@ -249,7 +229,7 @@ const IncomeDashboard: React.FC = () => {
           name: newIncome.name,
           year: getYear(date),
           month: format(date, 'MMMM'),
-          date: format(date, 'dd/MM/yyyy'),
+          date: date.toISOString().split('T')[0],
           amount: parsedAmount,
           recurring: newIncome.recurring,
           frequency: newIncome.frequency,
@@ -276,10 +256,8 @@ const IncomeDashboard: React.FC = () => {
       const userRef = doc(db, 'users', currentUser.uid);
       const batch = writeBatch(db);
 
-      // Update income
       batch.set(userRef, { income: updatedIncomeData }, { merge: true });
 
-      // Update bank account balance
       if (editingIncome) {
         const oldAccount = bankAccounts.find(account => account.id === editingIncome.bankAccountId);
         const newAccount = bankAccounts.find(account => account.id === newIncome.bankAccountId);
@@ -321,10 +299,8 @@ const IncomeDashboard: React.FC = () => {
       const userRef = doc(db, 'users', currentUser.uid);
       const batch = writeBatch(db);
 
-      // Update income
       batch.set(userRef, { income: updatedIncomeData }, { merge: true });
 
-      // Update bank account balance
       const account = bankAccounts.find(acc => acc.id === income.bankAccountId);
       if (account) {
         const updatedAccounts = bankAccounts.map(acc =>
@@ -365,7 +341,7 @@ const IncomeDashboard: React.FC = () => {
       id: '',
       name: '',
       amount: 0,
-      date: new Date().toISOString().slice(0, 10),
+      date: new Date().toISOString().split('T')[0],
       recurring: false,
       frequency: 'monthly',
       month: format(new Date(), 'MMMM'),
@@ -387,26 +363,28 @@ const IncomeDashboard: React.FC = () => {
     }
   };
   
+  const filteredIncomeData = filterMonth
+    ? incomeData.filter((item) => item.month === filterMonth && item.year === filterYear)
+    : incomeData.filter((item) => item.year === filterYear);
+
   const formatNumber = (value: number): string => {
-    return value.toLocaleString(); // Default formatting with commas for thousands
+    return value.toLocaleString();
   };
 
     return (
     <div className="flex h-screen w-screen bg-gray-100">
       <Sidebar page="Income" />
       <main className="flex flex-col flex-1 p-6 overflow-auto">
-        <div className="bg-white p-4 rounded-lg shadow-md mb-6">
           <DashboardHeader Page_Name="Income" />
-        </div>
         
-        <div className="content-body grid grid-cols-2 gap-6"> {/* Grid layout for the top two cards */}
-          {/* First Card */}
+        <div className="content-body grid grid-cols-2 gap-6">
           <Card>
             <CardHeader>
               <h3 className="text-xl font-semibold">Income Overview</h3>
               <div className="mt-2">
+                <label htmlFor="filterYear" className="text-white">Filter by year:</label>
                 <Input
-                  label="Filter by year:"
+                  label=""
                   type="number"
                   id="filterYear"
                   name="filterYear"
@@ -452,7 +430,6 @@ const IncomeDashboard: React.FC = () => {
             </CardContent>
           </Card>
   
-          {/* Second Card */}
           <Card>
             <CardHeader>
               <h3 className="text-xl font-semibold">Add/Edit Income</h3>
@@ -550,14 +527,14 @@ const IncomeDashboard: React.FC = () => {
             </CardContent>
           </Card>
   
-          {/* Bottom Card: Income Entries */}
-          <Card className="col-span-2"> {/* Span both columns */}
+          <Card className="col-span-2">
             <CardHeader>
               <h3 className="text-xl font-semibold">Income Entries</h3>
               <div className="flex space-x-4 mt-2">
                 <div>
+                  <label htmlFor="filterMonth" className="text-white">Filter by month:</label>
                   <Select
-                    label="Filter by month:"
+                    label=""
                     id="filterMonth"
                     value={filterMonth}
                     onChange={handleFilterMonth}
@@ -582,7 +559,7 @@ const IncomeDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <ul className="divide-y divide-gray-300">
-                {sortedAndFilteredIncomeData.map((income, index) => (
+                {filteredIncomeData.map((income, index) => (
                   <li
                     key={index}
                     className="py-2 flex justify-between items-center text-gray-700 cursor-pointer hover:bg-gray-100"

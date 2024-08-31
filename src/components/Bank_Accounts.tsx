@@ -12,6 +12,7 @@ interface BankAccount {
   id: string;
   name: string;
   balance: number;
+  startingbalance?: number;
 }
 
 const Bank_Accounts: React.FC = () => {
@@ -20,6 +21,7 @@ const Bank_Accounts: React.FC = () => {
   const [newAccount, setNewAccount] = useState<{ name: string; balance: string }>({ name: '', balance: '' });
 
   useEffect(() => {
+    document.title = "FinancePro | Log Bank Accounts"
     if (currentUser) {
       const userRef = doc(db, 'users', currentUser.uid);
       const unsub = onSnapshot(userRef, (doc) => {
@@ -53,6 +55,7 @@ const Bank_Accounts: React.FC = () => {
       id: uuidv4(),
       name: newAccount.name,
       balance: balance,
+      startingbalance: balance,
     };
 
     const updatedAccounts = [...bankAccounts, newBankAccount];
@@ -83,9 +86,7 @@ const Bank_Accounts: React.FC = () => {
     <div className="flex h-screen w-screen bg-gray-100">
       <Sidebar page="Bank_Accounts" />
       <main className="flex-1 flex flex-col p-6 overflow-auto">
-        <div className="bg-white p-4 rounded-lg shadow-md mb-6">
           <DashboardHeader Page_Name="Bank Accounts" />
-        </div>
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
@@ -121,6 +122,7 @@ const Bank_Accounts: React.FC = () => {
                   value={newAccount.name}
                   onChange={(e) => setNewAccount({ ...newAccount, name: e.target.value })}
                   placeholder="e.g., Savings Account"
+                  className="w-full p-3 border border-gray-300 rounded-lg shadow-sm"
                 />
 
                 <Input
@@ -130,8 +132,14 @@ const Bank_Accounts: React.FC = () => {
                   value={newAccount.balance}
                   onChange={(e) => setNewAccount({ ...newAccount, balance: e.target.value })}
                   placeholder="e.g., 1000"
+                  className="w-full p-3 border border-gray-300 rounded-lg shadow-sm"
                 />
-                <Button type="submit">Add Account</Button>
+                <Button
+                  type="submit"
+                  className="w-full bg-green-600 text-white hover:bg-green-700 rounded-md px-4 py-2 transition duration-300"
+                >
+                  Add Account
+                </Button>
               </form>
             </CardContent>
           </Card>

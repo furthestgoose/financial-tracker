@@ -1,23 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, {useEffect, useState} from 'react';
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend
+    CartesianGrid,
+    Cell,
+    Legend,
+    Line,
+    LineChart,
+    Pie,
+    PieChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis
 } from 'recharts';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from 'date-fns';
+import {eachDayOfInterval, endOfMonth, format, parseISO, startOfMonth} from 'date-fns';
 import Sidebar from './ui/sidebar';
 import DashboardHeader from './ui/Dashboard_header';
-import { Card, CardHeader, CardContent } from './ui/card';
-import { useAuth } from '../contexts/AuthContext';
-import { db, doc, onSnapshot } from '../firebase';
+import {Card, CardContent, CardHeader} from './ui/card';
+import {useAuth} from '../contexts/AuthContext';
+import {db, doc, onSnapshot} from '../firebase';
 import axios from 'axios';
 
 const FINNHUB_API_KEY = process.env.REACT_APP_INVESTMENTS_KEY;
@@ -26,6 +26,7 @@ interface BankAccount {
   id: string;
   name: string;
   balance: number;
+  startingbalance: number;
 }
 
 interface Expense {
@@ -69,6 +70,7 @@ const Dashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    document.title = "FinancePro | Overview"
     if (currentUser) {
       const userRef = doc(db, 'users', currentUser.uid);
       const unsub = onSnapshot(userRef, (doc) => {
@@ -115,14 +117,27 @@ const Dashboard: React.FC = () => {
 
     if (investments.length > 0) {
       fetchPrices();
-      const interval = setInterval(fetchPrices, 60000); // Update every minute
+      const interval = setInterval(fetchPrices, 60000);
       return () => clearInterval(interval);
     }
   }, [investments]);
 
   const totalBalance = bankAccounts.reduce((sum, account) => sum + account.balance, 0);
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const totalIncome = incomes.reduce((sum, income) => sum + income.amount, 0);
+  const currentMonthStart = startOfMonth(new Date());
+  const currentMonthEnd = endOfMonth(new Date());
+
+  const expensesThisMonth = expenses.filter(expense => {
+    const expenseDate = parseISO(expense.date);
+    return expenseDate >= currentMonthStart && expenseDate <= currentMonthEnd;
+  });
+
+  const incomesThisMonth = incomes.filter(income => {
+    const incomeDate = parseISO(income.date);
+    return incomeDate >= currentMonthStart && incomeDate <= currentMonthEnd;
+  });
+
+  const totalExpensesThisMonth = expensesThisMonth.reduce((sum, expense) => sum + expense.amount, 0);
+  const totalIncomeThisMonth = incomesThisMonth.reduce((sum, income) => sum + income.amount, 0);
 
   const expensesByCategory = expenses.reduce((acc, expense) => {
     acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
@@ -139,7 +154,7 @@ const Dashboard: React.FC = () => {
     end: endOfMonth(currentMonth)
   });
 
-  const startingBalance = totalBalance;
+  const startingBalance = bankAccounts.reduce((sum, account) => sum + account.startingbalance, 0);
 
   const dailyBalances = daysInMonth.map(day => {
     const dayStr = format(day, 'yyyy-MM-dd');
@@ -155,31 +170,31 @@ const Dashboard: React.FC = () => {
         return acc + currDayIncome - currDayExpense;
       }, startingBalance);
 
-    const balance = previousDayBalance + dayIncome + dayExpense - dayExpense;
+    const balance = previousDayBalance + dayIncome - dayExpense;
 
     return {
       date: format(day, 'dd'),
-      balance
+      balance,
+      income: dayIncome,
+      expense: dayExpense
     };
   });
 
   const calculatePortfolioValueOverTime = () => {
-    const result = investments
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .reduce((acc, investment) => {
-        const lastValue = acc.length > 0 ? acc[acc.length - 1].value : 0;
-        const currentPrice = priceData.find(p => p.symbol === investment.symbol)?.price || investment.price;
-        const newValue = investment.action === 'buy'
-          ? lastValue + (investment.amount * currentPrice)
-          : lastValue - (investment.amount * currentPrice);
+      return investments
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .reduce((acc, investment) => {
+            const lastValue = acc.length > 0 ? acc[acc.length - 1].value : 0;
+            const currentPrice = priceData.find(p => p.symbol === investment.symbol)?.price || investment.price;
+            const newValue = investment.action === 'buy'
+                ? lastValue + (investment.amount * currentPrice)
+                : lastValue - (investment.amount * currentPrice);
 
-        const roundedValue = parseFloat(newValue.toFixed(2));
+            const roundedValue = parseFloat(newValue.toFixed(2));
 
-        acc.push({ date: investment.date, value: roundedValue });
-        return acc;
-      }, [] as { date: string; value: number }[]);
-
-    return result;
+            acc.push({date: investment.date, value: roundedValue});
+            return acc;
+        }, [] as { date: string; value: number }[]);
   };
 
 
@@ -209,123 +224,133 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="flex h-screen w-screen bg-gray-100">
-      <Sidebar page="Home" />
-      <main className="flex-1 flex flex-col p-6 overflow-auto">
-        <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-          <DashboardHeader Page_Name="Overview" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader>Total Balance</CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">£{formatNumber(totalBalance)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>Total Expenses</CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-red-500">£{formatNumber(totalExpenses)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>Total Income</CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-green-500">£{formatNumber(totalIncome)}</p>
-            </CardContent>
-          </Card>
-          <Card className="md:col-span-2">
-            <CardHeader>Daily Balance (Current Month)</CardHeader>
-            <CardContent className="h-64">
-              {dailyBalances.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={dailyBalances}>
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <Line type="monotone" dataKey="balance" stroke="#8884d8" />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <NoDataPlaceholder />
-              )}
-            </CardContent>
-          </Card>
+  <Sidebar page="Home" />
+  <main className="flex-1 flex flex-col p-6 overflow-auto">
+      <DashboardHeader Page_Name="Overview" />
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <Card className="bg-blue-50 border border-blue-200">
+        <CardHeader className="text-white">Total Balance</CardHeader>
+        <CardContent>
+          <p className="text-4xl font-bold text-blue-800">£{formatNumber(totalBalance)}</p>
+        </CardContent>
+      </Card>
+      <Card className="bg-red-50 border border-red-200">
+        <CardHeader className="text-white">Total Expenses This Month</CardHeader>
+        <CardContent>
+          <p className="text-3xl font-bold text-red-800">£{formatNumber(totalExpensesThisMonth)}</p>
+        </CardContent>
+      </Card>
+      <Card className="bg-green-50 border border-green-200">
+        <CardHeader className="text-white">Total Income This Month</CardHeader>
+        <CardContent>
+          <p className="text-3xl font-bold text-green-800">£{formatNumber(totalIncomeThisMonth)}</p>
+        </CardContent>
+      </Card>
+      <Card className="md:col-span-2 bg-gray-50 border border-gray-200">
+        <CardHeader className="text-gray-600">Daily Balance (Current Month)</CardHeader>
+        <CardContent className="h-64">
+          {dailyBalances.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={dailyBalances}>
+                <XAxis dataKey="date" />
+                <YAxis tickFormatter={(value) => {
+                         if (value >= 1_000_000) {
+                           return `${(value / 1_000_000).toFixed(2)}M`;
+                         } else if (value >= 1_000) {
+                           return `${(value / 1_000).toFixed(2)}K`;
+                         } else {
+                           return value.toFixed(2);
+                         }
+                       }} />
+                <Tooltip />
+                <CartesianGrid strokeDasharray="3 3" />
+                <Line type="monotone" dataKey="balance" name="Balance" stroke="#8884d8" />
+                <Line type="monotone" dataKey="income" name="Income" stroke="#82ca9d" />
+                <Line type="monotone" dataKey="expense" name="Expense" stroke="#ff7300" />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <NoDataPlaceholder />
+          )}
+        </CardContent>
+      </Card>
 
-          <Card>
-            <CardHeader>Expense Distribution</CardHeader>
-            <CardContent className="h-64">
-              {pieChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieChartData}
-                      dataKey="value"
-                      nameKey="name"
-                      outerRadius="80%"
-                      fill="#8884d8"
-                    >
-                      {pieChartData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <NoDataPlaceholder />
-              )}
-            </CardContent>
-          </Card>
+      <Card className="bg-purple-50 border border-purple-200">
+        <CardHeader className="text-white">Expense Distribution</CardHeader>
+        <CardContent className="h-64">
+          {pieChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieChartData}
+                  dataKey="value"
+                  nameKey="name"
+                  outerRadius="80%"
+                  fill="#8884d8"
+                >
+                  {pieChartData.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <NoDataPlaceholder />
+          )}
+        </CardContent>
+      </Card>
 
-          <Card className="md:col-span-2">
-            <CardHeader>Portfolio Value Over Time</CardHeader>
-            <CardContent className="h-64">
-              {portfolioValueOverTime.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={portfolioValueOverTime}>
-                    <XAxis dataKey="date" tickFormatter={(date) => format(parseISO(date), 'MM/dd')} />
-                    <YAxis />
-                    <Tooltip formatter={(value) => [`£${formatNumber(value as number)}`, 'Portfolio Value']} />
-                    <CartesianGrid stroke="#eee" strokeDasharray="5 5" />
-                    <Line type="monotone" dataKey="value" stroke="#82ca9d" />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <NoDataPlaceholder />
-              )}
-            </CardContent>
-          </Card>
+      <Card className="md:col-span-2 bg-yellow-50 border border-yellow-200">
+        <CardHeader className="text-white">Portfolio Value Over Time</CardHeader>
+        <CardContent className="h-64">
+          {portfolioValueOverTime.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={portfolioValueOverTime}>
+                <XAxis dataKey="date" tickFormatter={(date) => format(parseISO(date), 'MM/dd')} />
+                <YAxis />
+                <Tooltip formatter={(value) => [`£${formatNumber(value as number)}`, 'Portfolio Value']} />
+                <CartesianGrid stroke="#eee" strokeDasharray="5 5" />
+                <Line type="monotone" dataKey="value" stroke="#82ca9d" />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <NoDataPlaceholder />
+          )}
+        </CardContent>
+      </Card>
 
-          <Card>
-            <CardHeader>Current Holdings</CardHeader>
-            <CardContent className="h-64">
-              {holdingsChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={holdingsChartData}
-                      dataKey="value"
-                      nameKey="name"
-                      outerRadius={100}
-                      fill="#8884d8"
-                    >
-                      {holdingsChartData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <NoDataPlaceholder />
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </main>
+      <Card className="bg-teal-50 border border-teal-200">
+        <CardHeader className="text-white">Current Holdings</CardHeader>
+        <CardContent className="h-64">
+          {holdingsChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={holdingsChartData}
+                  dataKey="value"
+                  nameKey="name"
+                  outerRadius={100}
+                  fill="#8884d8"
+                >
+                  {holdingsChartData.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <NoDataPlaceholder />
+          )}
+        </CardContent>
+      </Card>
     </div>
+  </main>
+</div>
+
   );
 };
+
 
 export default Dashboard;

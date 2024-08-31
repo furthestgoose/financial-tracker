@@ -30,6 +30,7 @@ const Goals: React.FC = () => {
   const [amountToAdd, setAmountToAdd] = useState<{[key: string]: string}>({});
 
   useEffect(() => {
+    document.title = "FinancePro | Log Goals"
     if (currentUser) {
       const userRef = doc(db, 'users', currentUser.uid);
       const unsub = onSnapshot(userRef, (doc) => {
@@ -46,16 +47,36 @@ const Goals: React.FC = () => {
 
       return () => unsub();
     }
-  }, [currentUser]); // Ensure the useEffect dependencies are correctly set
+  }, [currentUser]);
 
   const deleteGoal = async (id: string) => {
+    const goalToDelete = goals.find(goal => goal.id === id);
+    if (!goalToDelete) return;
+
     const updatedGoals = goals.filter(goal => goal.id !== id);
+    const account = bankAccounts.find(acc => acc.id === goalToDelete.accountId);
 
     if (currentUser) {
       const userRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userRef, { goals: updatedGoals }, { merge: true });
+      const batch = writeBatch(db);
+
+
+      batch.set(userRef, { goals: updatedGoals }, { merge: true });
+
+
+      if (account) {
+        const updatedAccounts = bankAccounts.map(acc =>
+          acc.id === account.id
+            ? { ...acc, balance: acc.balance + goalToDelete.savedAmount }
+            : acc
+        );
+        batch.set(userRef, { bankAccounts: updatedAccounts }, { merge: true });
+      }
+
+      await batch.commit();
     }
   };
+
 
   const handleAddGoal = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,32 +164,30 @@ const Goals: React.FC = () => {
     <div className="flex h-screen w-screen bg-gray-100">
       <Sidebar page="Goals" />
       <main className="flex-1 flex flex-col p-6 overflow-auto">
-        <div className="bg-white p-4 rounded-lg shadow-md mb-6">
           <DashboardHeader Page_Name="Goals" />
-        </div>
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
               <h2 className="text-2xl font-bold">Goals</h2>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4">
               {goals.map((goal) => {
                 const account = bankAccounts.find(acc => acc.id === goal.accountId);
                 const progress = calculateProgress(goal);
                 const maxAmountCanAdd = account ? account.balance : 0;
 
                 return (
-                  <div key={goal.id} className="mb-4 p-4 bg-white rounded-lg shadow">
+                  <div key={goal.id} className="mb-4 p-4 bg-gray-50 rounded-lg shadow-sm">
                     <h3 className="text-xl font-semibold">{goal.name}</h3>
-                    <p className="text-lg">Goal Amount: £{formatNumber(goal.amount)}</p>
-                    <p className="text-lg">Saved Amount: £{goal.savedAmount ? formatNumber(goal.savedAmount) : "0.00"}</p>
+                    <p className="text-lg text-gray-700">Goal Amount: £{formatNumber(goal.amount)}</p>
+                    <p className="text-lg text-gray-700">Saved Amount: £{goal.savedAmount ? formatNumber(goal.savedAmount) : "0.00"}</p>
                     <div className="w-full bg-gray-200 rounded-full h-4 mb-4">
                       <div
                         className="bg-green-600 h-4 rounded-full"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
-                    <p>{progress.toFixed(2)}% Complete</p>
+                    <p className="text-gray-600">{progress.toFixed(2)}% Complete</p>
 
                     {progress < 100 ? (
                       <>
@@ -179,10 +198,11 @@ const Goals: React.FC = () => {
                           value={amountToAdd[goal.id] || ""}
                           onChange={(e) => setAmountToAdd({ ...amountToAdd, [goal.id]: e.target.value })}
                           placeholder="Enter amount"
+                          className="w-full p-3 border border-gray-300 rounded-lg shadow-sm"
                         />
                         <Button
                           onClick={() => handleAddFunds(goal.id)}
-                          className="mt-2 bg-green-500 mr-3 text-white hover:bg-green-600"
+                          className="mt-2 bg-green-500 text-white hover:bg-green-600 rounded-md px-4 py-2 transition duration-300"
                           disabled={!account || parseFloat(amountToAdd[goal.id]) <= 0 || parseFloat(amountToAdd[goal.id]) > maxAmountCanAdd}
                         >
                           Add Funds
@@ -192,13 +212,14 @@ const Goals: React.FC = () => {
                       <p className="text-green-600 font-semibold">Goal Reached!</p>
                     )}
 
-                    <Button onClick={() => deleteGoal(goal.id)} className="mt-2 bg-red-500 text-white hover:bg-red-600 ">
+                    <Button onClick={() => deleteGoal(goal.id)} className="mt-2 bg-red-500 text-white hover:bg-red-600 rounded-md px-4 py-2 transition duration-300">
                       Delete
                     </Button>
                   </div>
                 );
               })}
             </CardContent>
+
           </Card>
           <Card>
             <CardHeader>
@@ -213,6 +234,7 @@ const Goals: React.FC = () => {
                   value={newGoal.name}
                   onChange={(e) => setNewGoal(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="e.g., Save for vacation"
+                  className="w-full p-3 border border-gray-300 rounded-lg shadow-sm"
                 />
 
                 <Input
@@ -222,6 +244,7 @@ const Goals: React.FC = () => {
                   value={newGoal.amount}
                   onChange={(e) => setNewGoal(prev => ({ ...prev, amount: e.target.value }))}
                   placeholder="e.g., 1000"
+                  className="w-full p-3 border border-gray-300 rounded-lg shadow-sm"
                 />
 
                 <Select
@@ -229,6 +252,7 @@ const Goals: React.FC = () => {
                   id="accountSelect"
                   value={newGoal.accountId}
                   onChange={(e) => setNewGoal(prev => ({ ...prev, accountId: e.target.value }))}
+                  className="w-full p-3 border border-gray-300 rounded-lg shadow-sm"
                 >
                   <option value="">Select Bank Account</option>
                   {bankAccounts.map((account) => (
@@ -238,7 +262,9 @@ const Goals: React.FC = () => {
                   ))}
                 </Select>
 
-                <Button type="submit">Add Goal</Button>
+                <Button type="submit" className="w-full bg-green-600 text-white hover:bg-green-700 rounded-md px-4 py-2 transition duration-300">
+                  Add Goal
+                </Button>
               </form>
             </CardContent>
           </Card>

@@ -63,6 +63,7 @@ const InvestmentsDashboard: React.FC = () => {
   const [symbolError, setSymbolError] = useState<string | null>(null);
 
   useEffect(() => {
+    document.title = "FinancePro | Log Investments"
     if (currentUser) {
       const userRef = doc(db, 'users', currentUser.uid);
       const unsub = onSnapshot(userRef, (doc) => {
@@ -375,9 +376,7 @@ const InvestmentsDashboard: React.FC = () => {
     <div className="flex h-screen w-screen bg-gray-100">
       <Sidebar page="Investments" />
       <main className="flex flex-col flex-1 p-6 overflow-auto">
-        <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-          <DashboardHeader Page_Name="Stock Investments (GBP)" />
-        </div>
+          <DashboardHeader Page_Name="Investments" />
 
         <div className="content-body grid grid-cols-2 gap-6">
           <Card>

@@ -2,61 +2,59 @@ import React from 'react';
 
 const Sidebar = (props: { page: string; }) => {
   return (
-    <aside className="sidebar w-64 bg-gray-900 text-white h-full overflow-y-auto">
-      <div className="sidebar-header bg-gray-800 p-5">
-        <h2 className="text-xl font-semibold">Dashboard</h2>
+    <aside className="w-64 bg-gray-800 text-white h-full flex flex-col">
+      <div className="bg-gray-700 p-6 flex items-center">
+        <h2 className="text-2xl font-bold">FinancePro</h2>
       </div>
-      <nav className="sidebar-nav pt-5">
+      <nav className="flex-1 pt-6">
         <a
           href="/dashboard"
-          className={`nav-item block px-5 py-3 transition-colors duration-300 ${
-            props.page === "Home" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
+          className={`block px-6 py-3 transition-colors duration-300 rounded-lg ${
+            props.page === "Home" ? "bg-gray-600 text-white" : "text-gray-300 hover:bg-gray-600 hover:text-white"
           }`}
         >
           Overview
         </a>
         <a
           href="/bank-accounts"
-          className={`nav-item block px-5 py-3 transition-colors duration-300 ${
-            props.page === "Bank_Accounts" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
+          className={`block px-6 py-3 transition-colors duration-300 rounded-lg ${
+            props.page === "Bank_Accounts" ? "bg-gray-600 text-white" : "text-gray-300 hover:bg-gray-600 hover:text-white"
           }`}
         >
           Bank Accounts
         </a>
         <a
           href="/goals"
-          className={`nav-item block px-5 py-3 transition-colors duration-300 ${
-            props.page === "Goals" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
+          className={`block px-6 py-3 transition-colors duration-300 rounded-lg ${
+            props.page === "Goals" ? "bg-gray-600 text-white" : "text-gray-300 hover:bg-gray-600 hover:text-white"
           }`}
         >
           Goals
         </a>
         <a
           href="/income"
-          className={`nav-item block px-5 py-3 transition-colors duration-300 ${
-            props.page === "Income" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
+          className={`block px-6 py-3 transition-colors duration-300 rounded-lg ${
+            props.page === "Income" ? "bg-gray-600 text-white" : "text-gray-300 hover:bg-gray-600 hover:text-white"
           }`}
         >
           Income
         </a>
         <a
           href="/expenses"
-          className={`nav-item block px-5 py-3 transition-colors duration-300 ${
-            props.page === "Expenses" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
+          className={`block px-6 py-3 transition-colors duration-300 rounded-lg ${
+            props.page === "Expenses" ? "bg-gray-600 text-white" : "text-gray-300 hover:bg-gray-600 hover:text-white"
           }`}
         >
           Expenses
         </a>
         <a
           href="/investments"
-          className={`nav-item block px-5 py-3 transition-colors duration-300 ${
-            props.page === "Investments" ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
+          className={`block px-6 py-3 transition-colors duration-300 rounded-lg ${
+            props.page === "Investments" ? "bg-gray-600 text-white" : "text-gray-300 hover:bg-gray-600 hover:text-white"
           }`}
         >
           Investments
         </a>
-
-
       </nav>
     </aside>
   );

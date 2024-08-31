@@ -66,6 +66,7 @@ const Expenses: React.FC = () => {
   const [editMode, setEditMode] = useState(false);
 
   useEffect(() => {
+    document.title = "FinancePro | Log Expenses"
     if (currentUser) {
       const userExpensesRef = doc(db, 'users', currentUser.uid);
       const unsub = onSnapshot(userExpensesRef, (doc) => {
@@ -93,7 +94,6 @@ const Expenses: React.FC = () => {
       e => e.date >= startDate && e.date <= endDate
     );
 
-    // Update habit data
     const dateRange = getDatesInRange(new Date(startDate), new Date(endDate));
     const newHabitData: HabitData[] = dateRange.map(date => ({
       date: date.toISOString().split('T')[0],
@@ -101,7 +101,6 @@ const Expenses: React.FC = () => {
     }));
     setHabitData(newHabitData);
 
-    // Update category data
     const newCategoryData: CategoryData[] = categories.map(category => ({
       name: category,
       amount: Number(filteredExpenses.filter(e => e.category === category).reduce((sum, e) => sum + e.amount, 0).toFixed(2))
@@ -117,14 +116,6 @@ const Expenses: React.FC = () => {
       currentDate.setDate(currentDate.getDate() + 1);
     }
     return dates;
-  };
-
-  const handleExpenseChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setNewExpense(prev => ({
-      ...prev,
-      [name]: name === 'amount' ? parseFloat(value) : value
-    }));
   };
 
   const validateExpense = (expense: Expense): boolean => {
@@ -163,10 +154,8 @@ const Expenses: React.FC = () => {
       const userRef = doc(db, 'users', currentUser.uid);
       const batch = writeBatch(db);
 
-      // Update expenses
       batch.set(userRef, { expenses: updatedExpenses }, { merge: true });
 
-      // Update bank account balance
       const selectedAccount = bankAccounts.find(account => account.id === expenseToAdd.bankAccountId);
       if (selectedAccount) {
         const oldExpense = editMode ? expenses.find(exp => exp.id === expenseToAdd.id) : null;
@@ -183,14 +172,13 @@ const Expenses: React.FC = () => {
         return;
       }
 
-      // Add recurring expenses if needed
       if (expenseToAdd.recurring !== 'none' && expenseToAdd.endDate) {
         const frequencyInDays = expenseToAdd.recurring === 'weekly' ? 7 : 30;
         let currentDate = new Date(expenseToAdd.date);
-        const endDate = new Date(expenseToAdd.endDate); // Use the specified end date
+        const endDate = new Date(expenseToAdd.endDate);
 
         while (currentDate <= endDate) {
-          if (currentDate > new Date(expenseToAdd.date)) { // Skip the initial expense date
+          if (currentDate > new Date(expenseToAdd.date)) {
             const recurringExpense = {
               ...expenseToAdd,
               id: uuidv4(),
@@ -223,10 +211,10 @@ const Expenses: React.FC = () => {
       const userRef = doc(db, 'users', currentUser.uid);
       const batch = writeBatch(db);
 
-      // Update expenses
+
       batch.set(userRef, { expenses: updatedExpenses }, { merge: true });
 
-      // Update bank account balance
+
       const account = bankAccounts.find(acc => acc.id === expenseToDelete.bankAccountId);
       if (account) {
         const updatedAccounts = bankAccounts.map(acc =>
@@ -238,16 +226,6 @@ const Expenses: React.FC = () => {
       }
 
       await batch.commit();
-    }
-  };
-
-  const M_KFormat = (value: number): string => {
-    if (value >= 1_000_000) {
-      return `£${(value / 1_000_000).toFixed(1)}M`; // Format as millions with 1 decimal place
-    } else if (value >= 1_000) {
-      return `£${(value / 1_000).toFixed(1)}K`; // Format as thousands with 1 decimal place
-    } else {
-      return `£${value.toFixed(0)}`; // Format as a regular number
     }
   };
 
@@ -270,7 +248,7 @@ const Expenses: React.FC = () => {
   const totalExpenses: number = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
   const formatNumber = (value: number): string => {
-    return value.toLocaleString(); // Default formatting with commas for thousands
+    return value.toLocaleString();
   };
 
 
@@ -278,9 +256,7 @@ const Expenses: React.FC = () => {
     <div className="flex h-screen w-screen bg-gray-100">
       <Sidebar page="Expenses" />
       <main className="flex-1 flex flex-col p-6 overflow-auto">
-        <div className="bg-white p-4 rounded-lg shadow-md mb-6">
           <DashboardHeader Page_Name="Expenses" />
-        </div>
 
         {/* Date Range Controls */}
         <div className="mb-6">
@@ -311,21 +287,27 @@ const Expenses: React.FC = () => {
             <CardHeader>Add New Expense</CardHeader>
             <CardContent>
               <form onSubmit={addOrUpdateExpense} className="space-y-2">
-                <input
+                <Input
+                  label="Expense Name:"
+                  id="Expense Name"
                   type="text"
                   placeholder="Expense Name"
                   value={newExpense.name}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setNewExpense({ ...newExpense, name: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
-                <input
+                <Input
+                  label="Amount:"
                   type="number"
+                  id="Amount"
                   placeholder="Amount"
                   value={newExpense.amount}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setNewExpense({ ...newExpense, amount: parseFloat(e.target.value) })}
                   className="w-full p-2 border rounded"
                 />
-                <select
+                <Select
+                  label="Category:"
+                  id="Category"
                   value={newExpense.category}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewExpense({ ...newExpense, category: e.target.value as ExpenseCategory })}
                   className="w-full p-2 border rounded"
@@ -335,14 +317,18 @@ const Expenses: React.FC = () => {
                       {category}
                     </option>
                   ))}
-                </select>
-                <input
+                </Select>
+                <Input
+                  label="Date:"
+                  id="Date"
                   type="date"
                   value={newExpense.date}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setNewExpense({ ...newExpense, date: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
-                <select
+                <Select
+                  label="Recurring?:"
+                  id="Recurring"
                   value={newExpense.recurring}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewExpense({ ...newExpense, recurring: e.target.value as RecurringFrequency })}
                   className="w-full p-2 border rounded"
@@ -350,16 +336,20 @@ const Expenses: React.FC = () => {
                   <option value="none">Not Recurring</option>
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
-                </select>
+                </Select>
                 {newExpense.recurring !== 'none' && (
-                  <input
+                  <Input
+                    label="Date:"
+                    id="Date"
                     type="date"
                     value={newExpense.endDate}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => setNewExpense({ ...newExpense, endDate: e.target.value })}
                     className="w-full p-2 border rounded"
                   />
                 )}
-                <select
+                <Select
+                  label="Bank Account:"
+                  id="Bank account"
                   value={newExpense.bankAccountId}
                   onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewExpense({ ...newExpense, bankAccountId: e.target.value })}
                   className="w-full p-2 border rounded"
@@ -370,7 +360,7 @@ const Expenses: React.FC = () => {
                       {account.name} (Balance: £{formatNumber(account.balance)})
                     </option>
                   ))}
-                </select>
+                </Select>
                 <Button type="submit" className="w-full flex items-center justify-center bg-green-600 hover:bg-green-700 focus:outline-none">
                   <PlusCircle className="mr-2 h-4 w-4" /> {editMode ? 'Update' : 'Add'} Expense
                 </Button>
@@ -391,7 +381,15 @@ const Expenses: React.FC = () => {
                 <BarChart data={categoryData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
-                  <YAxis tickFormatter={M_KFormat} />
+                  <YAxis tickFormatter={(value) => {
+                           if (value >= 1_000_000) {
+                             return `${(value / 1_000_000).toFixed(2)}M`;
+                           } else if (value >= 1_000) {
+                             return `${(value / 1_000).toFixed(2)}K`;
+                           } else {
+                             return value.toFixed(2);
+                           }
+                         }} />
                   <Tooltip
                     formatter={(value: any) => ` ${formatNumber(Number(value))}`}
                   />
@@ -409,7 +407,7 @@ const Expenses: React.FC = () => {
                   <XAxis dataKey="date" />
                   <YAxis tickFormatter={(value) => formatNumber(value)} />
                   <Tooltip
-                    formatter={(value: any) => `£ ${formatNumber(Number(value))}`}
+                    formatter={(value: any) => ` ${formatNumber(Number(value))}`}
                   />
                   
                   <Bar dataKey="count" fill="#82ca9d" />
